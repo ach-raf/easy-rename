@@ -4,9 +4,11 @@ import { Dropzone } from './components/Dropzone';
 import { RegexBar, IndexPreview } from './components/RegexBar';
 import { PairList } from './components/PairList';
 import { UnmatchedList } from './components/UnmatchedList';
-import { listFiles } from './api';
+import { listFiles, renamePairs, undoRenames, type RenameOp, type RenameReport } from './api';
 import { classify, extOf } from './lib/classify';
 import { buildPairs, type MediaFile } from './lib/match';
+import { buildRenamePlan } from './lib/renamePlan';
+import { RenamePanel } from './components/RenamePanel';
 import './app.css';
 import './components/PairList.css';
 
@@ -19,8 +21,28 @@ export default function App() {
   const [pattern, setPattern] = useState('(\\d+)');
   const [shift, setShift] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
+  const [onConflict, setOnConflict] = useState<'skip' | 'overwrite'>('skip');
+  const [report, setReport] = useState<RenameReport | null>(null);
+  const [lastApplied, setLastApplied] = useState<RenameOp[] | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  const ops = useMemo(
+    () => buildRenamePlan(rows.filter((r) => r.sub).map((r) => ({ video: r.video, sub: r.sub! }))),
+    [rows],
+  );
+
+  const onRun = async () => {
+    const r = await renamePairs(ops, onConflict);
+    setReport(r);
+    setLastApplied(r.applied);
+  };
+  const onUndo = async () => {
+    if (!lastApplied) return;
+    const r = await undoRenames(lastApplied);
+    setReport(r);
+    setLastApplied(null);
+  };
 
   const unmatchedSubs = useMemo(() => {
     const used = new Set(rows.filter((r) => r.sub).map((r) => r.sub!.id));
@@ -101,6 +123,15 @@ export default function App() {
               <UnmatchedList subs={unmatchedSubs} />
             </div>
           </DndContext>
+          <RenamePanel
+            ops={ops}
+            onConflict={onConflict}
+            setOnConflict={setOnConflict}
+            onRun={onRun}
+            onUndo={onUndo}
+            canUndo={lastApplied !== null}
+            report={report}
+          />
         </>
       )}
     </div>
