@@ -19,7 +19,7 @@ cd src-tauri && cargo test   # Rust command tests
 pnpm tauri build
 ```
 
-Produces the raw `Easy Rename.exe` at `src-tauri/target/release/` and an NSIS installer `.exe` under `src-tauri/target/release/bundle/nsis/`.
+Produces the raw `tauri-app.exe` binary at `src-tauri/target/release/` and an NSIS installer `Easy Rename_0.1.0_x64-setup.exe` under `src-tauri/target/release/bundle/nsis/`.
 
 ## How matching works
 

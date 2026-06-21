@@ -10,7 +10,6 @@ import { buildPairs, type MediaFile } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
 import { RenamePanel } from './components/RenamePanel';
 import './app.css';
-import './components/PairList.css';
 
 type Row = { video: MediaFile; sub: MediaFile | null };
 
@@ -24,6 +23,8 @@ export default function App() {
   const [onConflict, setOnConflict] = useState<'skip' | 'overwrite'>('skip');
   const [report, setReport] = useState<RenameReport | null>(null);
   const [lastApplied, setLastApplied] = useState<RenameOp[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -33,15 +34,32 @@ export default function App() {
   );
 
   const onRun = async () => {
-    const r = await renamePairs(ops, onConflict);
-    setReport(r);
-    setLastApplied(r.applied);
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await renamePairs(ops, onConflict);
+      setReport(r);
+      setLastApplied(r.applied);
+      setApiError(null);
+    } catch (e) {
+      setApiError(String(e));
+    } finally {
+      setBusy(false);
+    }
   };
   const onUndo = async () => {
-    if (!lastApplied) return;
-    const r = await undoRenames(lastApplied);
-    setReport(r);
-    setLastApplied(null);
+    if (busy || !lastApplied) return;
+    setBusy(true);
+    try {
+      const r = await undoRenames(lastApplied);
+      setReport(r);
+      setLastApplied(null);
+      setApiError(null);
+    } catch (e) {
+      setApiError(String(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const unmatchedSubs = useMemo(() => {
@@ -76,6 +94,9 @@ export default function App() {
     setRows((prev) => prev.map((r) => (r.video.id === videoId ? { ...r, sub: null } : r)));
 
   const onFolder = useCallback(async (dir: string) => {
+    setLastApplied(null);
+    setReport(null);
+    setApiError(null);
     const entries = await listFiles(dir, true);
     const vids: MediaFile[] = [];
     const subz: MediaFile[] = [];
@@ -129,8 +150,10 @@ export default function App() {
             setOnConflict={setOnConflict}
             onRun={onRun}
             onUndo={onUndo}
+            busy={busy}
             canUndo={lastApplied !== null}
             report={report}
+            apiError={apiError}
           />
         </>
       )}

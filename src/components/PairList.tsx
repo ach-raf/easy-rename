@@ -1,5 +1,6 @@
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 import type { Pair } from '../lib/match';
+import './PairList.css';
 
 function Row({ pair, onClear }: { pair: Pair; onClear: (videoId: string) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'row:' + pair.video.id, data: { videoId: pair.video.id } });

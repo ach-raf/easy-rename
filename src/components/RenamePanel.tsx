@@ -7,11 +7,13 @@ interface Props {
   setOnConflict: (v: 'skip' | 'overwrite') => void;
   onRun: () => void;
   onUndo: () => void;
+  busy: boolean;
   canUndo: boolean;
   report: RenameReport | null;
+  apiError: string | null;
 }
 
-export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, canUndo, report }: Props) {
+export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError }: Props) {
   return (
     <div className="rename-panel">
       <div className="bar">
@@ -21,10 +23,10 @@ export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, can
             <option value="overwrite">Overwrite</option>
           </select>
         </label>
-        <button className="primary" onClick={onRun} disabled={ops.length === 0}>
+        <button className="primary" onClick={onRun} disabled={busy || ops.length === 0}>
           Rename {ops.length} file{ops.length === 1 ? '' : 's'}
         </button>
-        <button onClick={onUndo} disabled={!canUndo}>Undo last</button>
+        <button onClick={onUndo} disabled={busy || !canUndo}>Undo last</button>
       </div>
 
       <details open>
@@ -50,6 +52,8 @@ export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, can
           )}
         </div>
       )}
+
+      {apiError && <p className="err">{apiError}</p>}
     </div>
   );
 }
