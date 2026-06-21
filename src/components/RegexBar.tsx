@@ -1,13 +1,5 @@
-import './RegexBar.css';
-import { extractIndex } from '../lib/match';
+import { extractIndex, REGEX_PRESETS } from '../lib/match';
 import type { MediaFile } from '../lib/match';
-
-const PRESETS: { label: string; pattern: string }[] = [
-  { label: 'Any number  (\\d+)', pattern: '(\\d+)' },
-  { label: 'After E  E(\\d+)', pattern: 'E(\\d+)' },
-  { label: 'SxxExx  S\\d+E(\\d+)', pattern: 'S\\d+E(\\d+)' },
-  { label: 'After -  -(\\d+)', pattern: '-(\\d+)' },
-];
 
 interface Props {
   pattern: string;
@@ -18,27 +10,37 @@ interface Props {
 
 export function RegexBar({ pattern, setPattern, shift, setShift }: Props) {
   return (
-    <div className="regexbar">
-      <label>Match pattern
+    <div className="card regexbar">
+      <div className="field">
+        <span>Match pattern</span>
         <input
+          type="text"
           value={pattern}
           onChange={(e) => setPattern(e.target.value)}
           placeholder="e.g. (\\d+)"
           spellCheck={false}
         />
-      </label>
-      <div className="presets">
-        {PRESETS.map((p) => (
-          <button key={p.pattern} onClick={() => setPattern(p.pattern)}>{p.label}</button>
-        ))}
       </div>
-      <label>Shift (off-by-one)
+      <div className="field">
+        <span>Shift (off-by-one)</span>
         <input
           type="number"
           value={shift}
           onChange={(e) => setShift(Number(e.target.value) || 0)}
         />
-      </label>
+      </div>
+      <div className="presets">
+        {REGEX_PRESETS.map((p) => (
+          <button
+            key={p.pattern}
+            className={p.pattern === pattern ? 'active' : ''}
+            title={p.pattern}
+            onClick={() => setPattern(p.pattern)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -51,8 +53,8 @@ export function IndexPreview({ files, pattern }: { files: MediaFile[]; pattern: 
           const idx = extractIndex(f.name, pattern);
           return (
             <tr key={f.id}>
-              <td>{f.name}</td>
-              <td>{idx === null ? '—' : idx}</td>
+              <td className="name" title={f.name}>{f.name}</td>
+              <td className={'idx' + (idx === null ? ' miss' : '')}>{idx === null ? '—' : idx}</td>
             </tr>
           );
         })}

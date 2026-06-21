@@ -1,5 +1,4 @@
 import type { RenameOp, RenameReport } from '../api';
-import './RenamePanel.css';
 
 interface Props {
   ops: RenameOp[];
@@ -15,37 +14,42 @@ interface Props {
 
 export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError }: Props) {
   return (
-    <div className="rename-panel">
+    <div className="card rename-panel">
       <div className="bar">
-        <label>On conflict
+        <div className="field">
+          <span>On conflict</span>
           <select value={onConflict} onChange={(e) => setOnConflict(e.target.value as 'skip' | 'overwrite')}>
             <option value="skip">Skip</option>
             <option value="overwrite">Overwrite</option>
           </select>
-        </label>
+        </div>
         <button className="primary" onClick={onRun} disabled={busy || ops.length === 0}>
-          Rename {ops.length} file{ops.length === 1 ? '' : 's'}
+          {busy ? 'Working…' : `Rename ${ops.length} file${ops.length === 1 ? '' : 's'}`}
         </button>
         <button onClick={onUndo} disabled={busy || !canUndo}>Undo last</button>
       </div>
 
       <details open>
         <summary>Preview ({ops.length})</summary>
-        <table className="preview">
+        <table className="rename-preview">
           <tbody>
-            {ops.map((op) => (
-              <tr key={op.src}>
-                <td>{op.src.split(/[\\/]/).pop()}</td>
-                <td>→</td>
-                <td>{op.dest.split(/[\\/]/).pop()}</td>
-              </tr>
-            ))}
+            {ops.map((op) => {
+              const from = op.src.split(/[\\/]/).pop();
+              const to = op.dest.split(/[\\/]/).pop();
+              return (
+                <tr key={op.src}>
+                  <td title={from}>{from}</td>
+                  <td className="arrow">→</td>
+                  <td className="dest" title={to}>{to}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </details>
 
       {report && (
-        <div className="report">
+        <div className={'report' + (report.errors.length > 0 ? ' has-errors' : '')}>
           <p>✓ Applied: {report.applied.length} · Skipped: {report.skipped.length} · Errors: {report.errors.length}</p>
           {report.errors.length > 0 && (
             <ul>{report.errors.map((e, i) => <li key={i} className="err">{e}</li>)}</ul>
@@ -53,7 +57,7 @@ export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, bus
         </div>
       )}
 
-      {apiError && <p className="err">{apiError}</p>}
+      {apiError && <p className="api-error">{apiError}</p>}
     </div>
   );
 }

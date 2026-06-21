@@ -7,8 +7,13 @@ function SubCard({ sub }: { sub: MediaFile }) {
     data: { sub },
   });
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes}
-      className={'sub-card' + (isDragging ? ' dragging' : '')}>
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={'sub-card' + (isDragging ? ' dragging' : '')}
+      title={sub.name}
+    >
       {sub.name}
     </div>
   );
@@ -16,10 +21,10 @@ function SubCard({ sub }: { sub: MediaFile }) {
 
 export function UnmatchedList({ subs }: { subs: MediaFile[] }) {
   return (
-    <div className="unmatched">
+    <div className="card unmatched">
       <h3>Unmatched subtitles ({subs.length})</h3>
-      {subs.length === 0 && <p className="muted">None — drag subs onto a video row to assign.</p>}
-      {subs.map((s) => <SubCard key={s.id} sub={s} />)}
+      {subs.length === 0 && <p className="muted">None — drag onto a video row to assign.</p>}
+      {subs.map((sub) => <SubCard key={sub.id} sub={sub} />)}
     </div>
   );
 }

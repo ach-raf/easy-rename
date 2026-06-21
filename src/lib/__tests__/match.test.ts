@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractIndex, buildPairs, MediaFile } from '../match';
+import { extractIndex, buildPairs, detectBestPattern, MediaFile } from '../match';
 
 const v = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'video' });
 const s = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'subtitle' });
@@ -45,5 +45,28 @@ describe('buildPairs', () => {
     expect(r.pairs).toHaveLength(1);
     expect(r.unmatchedVideos).toHaveLength(2);
     expect(r.unmatchedSubs).toHaveLength(0);
+  });
+});
+
+describe('detectBestPattern', () => {
+  it('prefers a pattern that yields unique pairs over one that collides on a year', () => {
+    // Mirrors real anime/show naming: `(\d+)` grabs the year 2004 -> all collide.
+    const videos = [v('Major (2004) - S01E01 - 027 - He Returns.mkv'), v('Major (2004) - S01E02 - 028 - Two.mkv')];
+    const subs = [s('Major (2004) - S01E01 - 027 - He Returns.ass'), s('Major (2004) - S01E02 - 028 - Two.ass')];
+    const best = detectBestPattern(videos, subs, ['(\\d+)', 'S\\d+E(\\d+)', '-\\s*(\\d+)\\s*-']);
+    // (\\d+) -> 1 pair (all index 2004); S##E## and dashes -> 2 pairs; tie keeps earliest = S##E##
+    expect(best).toBe('S\\d+E(\\d+)');
+    expect(buildPairs(videos, subs, best).pairs).toHaveLength(2);
+  });
+
+  it('falls back to the first candidate when none match better', () => {
+    const videos = [v('trailer.mkv')];
+    const subs = [s('trailer.srt')];
+    const best = detectBestPattern(videos, subs, ['(\\d+)', 'E(\\d+)']);
+    expect(best).toBe('(\\d+)');
+  });
+
+  it('returns a default when given no candidates', () => {
+    expect(detectBestPattern([v('a.mkv')], [s('a.srt')], [])).toBe('(\\d+)');
   });
 });

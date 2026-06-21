@@ -77,3 +77,37 @@ export function buildPairs(
     unmatchedSubs: subs.filter((sub) => !usedSubs.has(sub.id)),
   };
 }
+
+/** Preset patterns offered in the UI; also the candidates used by auto-detect.
+ *  Each must have exactly one capturing group denoting the episode index. */
+export const REGEX_PRESETS: { label: string; pattern: string }[] = [
+  { label: 'Any number', pattern: '(\\d+)' },
+  { label: 'S##E##', pattern: 'S\\d+E(\\d+)' },
+  { label: 'After E', pattern: 'E(\\d+)' },
+  { label: '# in - dashes -', pattern: '-\\s*(\\d+)\\s*-' },
+  { label: 'After - ', pattern: '-\\s*(\\d+)' },
+];
+
+/**
+ * Pick the candidate pattern that produces the most matched pairs for the given
+ * files. Solves the common failure where `(\d+)` grabs a year/resolution and
+ * every file collides — for `Show (2004) - S01E01`, `S\d+E(\d+)` wins because it
+ * yields N unique pairs vs 1 for `(\d+)`. Ties keep the earliest candidate.
+ */
+export function detectBestPattern(
+  videos: MediaFile[],
+  subs: MediaFile[],
+  candidates: string[],
+): string {
+  if (candidates.length === 0) return '(\\d+)';
+  let best = candidates[0];
+  let bestScore = -1;
+  for (const c of candidates) {
+    const score = buildPairs(videos, subs, c).pairs.length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return best;
+}

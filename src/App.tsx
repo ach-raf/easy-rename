@@ -6,12 +6,14 @@ import { PairList } from './components/PairList';
 import { UnmatchedList } from './components/UnmatchedList';
 import { listFiles, renamePairs, undoRenames, type RenameOp, type RenameReport } from './api';
 import { classify, extOf } from './lib/classify';
-import { buildPairs, type MediaFile } from './lib/match';
+import { buildPairs, detectBestPattern, REGEX_PRESETS, type MediaFile } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
 import { RenamePanel } from './components/RenamePanel';
 import './app.css';
 
 type Row = { video: MediaFile; sub: MediaFile | null };
+
+const PRESET_PATTERNS = REGEX_PRESETS.map((p) => p.pattern);
 
 export default function App() {
   const [folder, setFolder] = useState<string | null>(null);
@@ -67,9 +69,12 @@ export default function App() {
     return subs.filter((s) => !used.has(s.id));
   }, [rows, subs]);
 
+  const matchedRows = useMemo(() => rows.filter((r) => r.sub), [rows]);
+  const unmatchedVideos = useMemo(() => rows.filter((r) => !r.sub), [rows]);
+
   // Rebuild rows from files + pattern + shift. Manual drag edits are discarded
-  // on re-match (acceptable for v1; noted in the plan). Takes the arrays as args
-  // so it can be called from onFolder with freshly-built locals (state is async).
+  // on re-match. Takes the arrays as args so it can run from onFolder with the
+  // freshly-built locals (state updates are async).
   const recompute = (vids: MediaFile[], subz: MediaFile[], pat: string, sh: number) => {
     const matched = new Map(buildPairs(vids, subz, pat, sh).pairs.map((p) => [p.video.id, p.sub]));
     setRows(vids.map((v) => ({ video: v, sub: matched.get(v.id) ?? null })));
@@ -83,8 +88,8 @@ export default function App() {
       const next = prev.map((r) => ({ ...r }));
       const target = next.find((r) => r.video.id === toVideoId);
       if (!target) return prev;
-      const displaced = target.sub;                          // what the target row held before
-      for (const r of next) if (r.sub?.id === dragged.id) r.sub = displaced;  // pull from old row
+      const displaced = target.sub;
+      for (const r of next) if (r.sub?.id === dragged.id) r.sub = displaced;
       target.sub = dragged;
       return next;
     });
@@ -109,41 +114,77 @@ export default function App() {
     }
     vids.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     subz.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    // Auto-detect the pattern that yields the most pairs so it works out of the
+    // box on real filenames (where `(\d+)` often grabs a year/resolution).
+    const detected = detectBestPattern(vids, subz, PRESET_PATTERNS);
+    setPattern(detected);
     setFolder(dir);
     setVideos(vids);
     setSubs(subz);
-    recompute(vids, subz, pattern, shift);
-  }, [pattern, shift]);
+    recompute(vids, subz, detected, shift);
+  }, [shift]);
+
+  const onAutoDetect = () => {
+    const best = detectBestPattern(videos, subs, PRESET_PATTERNS);
+    setPattern(best);
+    recompute(videos, subs, best, shift);
+  };
 
   return (
     <div className="app">
-      <header><h1>Easy Rename</h1></header>
+      <header>
+        <h1>Easy Rename</h1>
+        <p className="subtitle">Match subtitles to videos by episode number, then rename in one click.</p>
+      </header>
+
       <Dropzone onFolder={onFolder} loaded={folder} />
-      <p className="muted">Videos: {videos.length} · Subtitles: {subs.length}</p>
+
       {folder && (
         <>
+          <p className="counts"><strong>{videos.length}</strong> videos · <strong>{subs.length}</strong> subtitles</p>
+
           <RegexBar pattern={pattern} setPattern={setPattern} shift={shift} setShift={setShift} />
-          <button onClick={() => recompute(videos, subs, pattern, shift)}>Re-match</button>
-          <div className="previews">
-            <div><h3>Videos</h3><IndexPreview files={videos} pattern={pattern} /></div>
-            <div><h3>Subtitles</h3><IndexPreview files={subs} pattern={pattern} /></div>
+
+          <div className="regex-row">
+            <div className="presets">
+              <button onClick={() => recompute(videos, subs, pattern, shift)}>Re-match</button>
+              <button onClick={onAutoDetect}>Auto-detect pattern</button>
+            </div>
           </div>
+
+          <div className="previews">
+            <div className="card preview-wrap">
+              <h3>Videos</h3>
+              <IndexPreview files={videos} pattern={pattern} />
+            </div>
+            <div className="card preview-wrap">
+              <h3>Subtitles</h3>
+              <IndexPreview files={subs} pattern={pattern} />
+            </div>
+          </div>
+
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <div className="layout">
-              <div>
-                <h3>Matched pairs</h3>
+              <div className="card">
+                <h3>Matched pairs ({matchedRows.length})</h3>
                 <PairList
-                  pairs={rows.filter((r) => r.sub).map((r) => ({ video: r.video, sub: r.sub! }))}
+                  pairs={matchedRows.map((r) => ({ video: r.video, sub: r.sub! }))}
+                  pattern={pattern}
                   onClear={clearSub}
                 />
-                <h3>Unmatched videos ({rows.filter((r) => !r.sub).length})</h3>
-                <ul className="muted">
-                  {rows.filter((r) => !r.sub).map((r) => <li key={r.video.id}>{r.video.name}</li>)}
-                </ul>
+                {unmatchedVideos.length > 0 && (
+                  <>
+                    <h3 style={{ marginTop: 18 }}>Unmatched videos ({unmatchedVideos.length})</h3>
+                    <ul className="unmatched-videos">
+                      {unmatchedVideos.map((r) => <li key={r.video.id} title={r.video.name}>{r.video.name}</li>)}
+                    </ul>
+                  </>
+                )}
               </div>
               <UnmatchedList subs={unmatchedSubs} />
             </div>
           </DndContext>
+
           <RenamePanel
             ops={ops}
             onConflict={onConflict}
