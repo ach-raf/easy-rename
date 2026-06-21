@@ -1,51 +1,38 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useState, useCallback } from 'react';
+import { Dropzone } from './components/Dropzone';
+import { listFiles } from './api';
+import { classify, extOf } from './lib/classify';
+import type { MediaFile } from './lib/match';
+import './app.css';
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+export default function App() {
+  const [folder, setFolder] = useState<string | null>(null);
+  const [videos, setVideos] = useState<MediaFile[]>([]);
+  const [subs, setSubs] = useState<MediaFile[]>([]);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const onFolder = useCallback(async (dir: string) => {
+    const entries = await listFiles(dir, true);
+    const vids: MediaFile[] = [];
+    const subz: MediaFile[] = [];
+    for (const e of entries) {
+      if (e.is_dir) continue;
+      const kind = classify(e.name);
+      if (kind === 'other') continue;
+      const mf: MediaFile = { id: e.path, name: e.name, path: e.path, ext: extOf(e.name), kind };
+      if (kind === 'video') vids.push(mf); else subz.push(mf);
+    }
+    vids.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    subz.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    setFolder(dir);
+    setVideos(vids);
+    setSubs(subz);
+  }, []);
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    <div className="app">
+      <header><h1>Easy Rename</h1></header>
+      <Dropzone onFolder={onFolder} loaded={folder} />
+      <p className="muted">Videos: {videos.length} · Subtitles: {subs.length}</p>
+    </div>
   );
 }
-
-export default App;

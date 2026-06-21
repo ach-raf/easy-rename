@@ -1,5 +1,3 @@
-import { classify, extOf } from './classify';
-
 export type FileKind = 'video' | 'subtitle' | 'other';
 
 export interface MediaFile {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractIndex, buildPairs, MediaFile, Pair } from '../match';
+import { extractIndex, buildPairs, MediaFile } from '../match';
 
 const v = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'video' });
 const s = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'subtitle' });
