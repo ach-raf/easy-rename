@@ -1,0 +1,11 @@
+.pairs { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pairs th { text-align: left; border-bottom: 2px solid #d1d5db; padding: 4px 8px; }
+.pairs td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
+.pairs tr.over { background: #eff6ff; }
+.sub-chip { display: inline-block; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 2px 8px; cursor: grab; }
+.sub-chip:active { cursor: grabbing; }
+.unmatched { background: #f9fafb; border-radius: 8px; padding: 8px; }
+.sub-card { background: #fff; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; margin: 4px 0; cursor: grab; }
+.sub-card.dragging { opacity: .5; }
+button.x { margin-left: 8px; background: none; border: none; cursor: pointer; color: #9ca3af; }
+.layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; margin-top: 12px; }
