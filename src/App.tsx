@@ -6,12 +6,10 @@ import { PairList } from './components/PairList';
 import { UnmatchedList } from './components/UnmatchedList';
 import { listFiles, renamePairs, undoRenames, type RenameOp, type RenameReport } from './api';
 import { classify, extOf } from './lib/classify';
-import { buildPairs, detectBestPattern, REGEX_PRESETS, type MediaFile } from './lib/match';
+import { buildPairs, detectBestPattern, applyReassign, REGEX_PRESETS, type MediaFile, type Row } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
 import { RenamePanel } from './components/RenamePanel';
 import './app.css';
-
-type Row = { video: MediaFile; sub: MediaFile | null };
 
 const PRESET_PATTERNS = REGEX_PRESETS.map((p) => p.pattern);
 
@@ -34,6 +32,34 @@ export default function App() {
     () => buildRenamePlan(rows.filter((r) => r.sub).map((r) => ({ video: r.video, sub: r.sub! }))),
     [rows],
   );
+
+  const unmatchedSubs = useMemo(() => {
+    const used = new Set(rows.filter((r) => r.sub).map((r) => r.sub!.id));
+    return subs.filter((s) => !used.has(s.id));
+  }, [rows, subs]);
+
+  const linkedCount = useMemo(() => rows.filter((r) => r.sub).length, [rows]);
+
+  // Assign `sub` to the video `videoId` (or unlink). The pure swap/assign logic
+  // lives in applyReassign (tested); the dropdown and drag both route through it.
+  const reassign = useCallback((videoId: string, sub: MediaFile | null) => {
+    setRows((prev) => applyReassign(prev, videoId, sub));
+  }, []);
+
+  // Rebuild rows from files + pattern + shift. Manual edits are discarded on
+  // re-match. Takes the arrays as args so it can run from onFolder with the
+  // freshly-built locals (state updates are async).
+  const recompute = (vids: MediaFile[], subz: MediaFile[], pat: string, sh: number) => {
+    const matched = new Map(buildPairs(vids, subz, pat, sh).pairs.map((p) => [p.video.id, p.sub]));
+    setRows(vids.map((v) => ({ video: v, sub: matched.get(v.id) ?? null })));
+  };
+
+  const onDragEnd = (e: DragEndEvent) => {
+    const toVideoId = (e.over?.data.current as { videoId?: string } | undefined)?.videoId;
+    const dragged = (e.active.data.current as { sub?: MediaFile } | undefined)?.sub;
+    if (!toVideoId || !dragged) return;
+    reassign(toVideoId, dragged);
+  };
 
   const onRun = async () => {
     if (busy) return;
@@ -63,40 +89,6 @@ export default function App() {
       setBusy(false);
     }
   };
-
-  const unmatchedSubs = useMemo(() => {
-    const used = new Set(rows.filter((r) => r.sub).map((r) => r.sub!.id));
-    return subs.filter((s) => !used.has(s.id));
-  }, [rows, subs]);
-
-  const matchedRows = useMemo(() => rows.filter((r) => r.sub), [rows]);
-  const unmatchedVideos = useMemo(() => rows.filter((r) => !r.sub), [rows]);
-
-  // Rebuild rows from files + pattern + shift. Manual drag edits are discarded
-  // on re-match. Takes the arrays as args so it can run from onFolder with the
-  // freshly-built locals (state updates are async).
-  const recompute = (vids: MediaFile[], subz: MediaFile[], pat: string, sh: number) => {
-    const matched = new Map(buildPairs(vids, subz, pat, sh).pairs.map((p) => [p.video.id, p.sub]));
-    setRows(vids.map((v) => ({ video: v, sub: matched.get(v.id) ?? null })));
-  };
-
-  const onDragEnd = (e: DragEndEvent) => {
-    const toVideoId = (e.over?.data.current as { videoId?: string } | undefined)?.videoId;
-    const dragged = (e.active.data.current as { sub?: MediaFile } | undefined)?.sub;
-    if (!toVideoId || !dragged) return;
-    setRows((prev) => {
-      const next = prev.map((r) => ({ ...r }));
-      const target = next.find((r) => r.video.id === toVideoId);
-      if (!target) return prev;
-      const displaced = target.sub;
-      for (const r of next) if (r.sub?.id === dragged.id) r.sub = displaced;
-      target.sub = dragged;
-      return next;
-    });
-  };
-
-  const clearSub = (videoId: string) =>
-    setRows((prev) => prev.map((r) => (r.video.id === videoId ? { ...r, sub: null } : r)));
 
   const onFolder = useCallback(async (dir: string) => {
     setLastApplied(null);
@@ -166,20 +158,9 @@ export default function App() {
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <div className="layout">
               <div className="card">
-                <h3>Matched pairs ({matchedRows.length})</h3>
-                <PairList
-                  pairs={matchedRows.map((r) => ({ video: r.video, sub: r.sub! }))}
-                  pattern={pattern}
-                  onClear={clearSub}
-                />
-                {unmatchedVideos.length > 0 && (
-                  <>
-                    <h3 style={{ marginTop: 18 }}>Unmatched videos ({unmatchedVideos.length})</h3>
-                    <ul className="unmatched-videos">
-                      {unmatchedVideos.map((r) => <li key={r.video.id} title={r.video.name}>{r.video.name}</li>)}
-                    </ul>
-                  </>
-                )}
+                <h3>Link each video to a subtitle ({linkedCount}/{rows.length})</h3>
+                <p className="hint">Use the dropdown on each row to choose its subtitle — picking one that's already used swaps them. You can also drag from the Unmatched panel.</p>
+                <PairList rows={rows} allSubs={subs} pattern={pattern} onReassign={reassign} />
               </div>
               <UnmatchedList subs={unmatchedSubs} />
             </div>

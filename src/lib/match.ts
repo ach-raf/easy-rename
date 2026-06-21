@@ -13,6 +13,12 @@ export interface Pair {
   sub: MediaFile;
 }
 
+/** One row per video in the UI. `sub` is null until a subtitle is assigned. */
+export interface Row {
+  video: MediaFile;
+  sub: MediaFile | null;
+}
+
 export interface MatchResult {
   pairs: Pair[];
   unmatchedVideos: MediaFile[];
@@ -110,4 +116,26 @@ export function detectBestPattern(
     }
   }
   return best;
+}
+
+/**
+ * Link `sub` to the video `videoId` (or unlink when `sub` is null). If that
+ * subtitle was already linked to another row, the two rows swap subtitles; if
+ * the target row already had one, the displaced subtitle takes the dragged
+ * subtitle's old slot (or returns to the unmatched pool when the dragged sub
+ * came from outside the rows). Pure + tested — the UI (dropdown and drag) both
+ * route through this so the behavior is identical either way.
+ */
+export function applyReassign(rows: Row[], videoId: string, sub: MediaFile | null): Row[] {
+  if (!rows.some((r) => r.video.id === videoId)) return rows;
+  const next = rows.map((r) => ({ ...r }));
+  const target = next.find((r) => r.video.id === videoId)!;
+  const displaced = target.sub;
+  if (sub) {
+    for (const r of next) if (r.sub?.id === sub.id) r.sub = displaced;
+    target.sub = sub;
+  } else {
+    target.sub = null;
+  }
+  return next;
 }

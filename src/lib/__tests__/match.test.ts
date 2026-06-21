@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractIndex, buildPairs, detectBestPattern, MediaFile } from '../match';
+import { extractIndex, buildPairs, detectBestPattern, applyReassign, MediaFile, Row } from '../match';
 
 const v = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'video' });
 const s = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'subtitle' });
@@ -68,5 +68,42 @@ describe('detectBestPattern', () => {
 
   it('returns a default when given no candidates', () => {
     expect(detectBestPattern([v('a.mkv')], [s('a.srt')], [])).toBe('(\\d+)');
+  });
+});
+
+describe('applyReassign', () => {
+  const mk = (rows: { video: MediaFile; sub: MediaFile | null }[]): Row[] => rows;
+
+  it('assigns a subtitle to an empty video', () => {
+    const rows = mk([{ video: v('ep1.mkv'), sub: null }]);
+    const out = applyReassign(rows, 'ep1.mkv', s('ep01.srt'));
+    expect(out[0].sub?.name).toBe('ep01.srt');
+  });
+
+  it('swaps when the chosen subtitle is already linked elsewhere', () => {
+    const rows = mk([
+      { video: v('ep1.mkv'), sub: s('a.srt') },
+      { video: v('ep2.mkv'), sub: s('b.srt') },
+    ]);
+    const out = applyReassign(rows, 'ep2.mkv', s('a.srt'));
+    expect(out[0].sub?.name).toBe('b.srt'); // displaced b moved to ep1
+    expect(out[1].sub?.name).toBe('a.srt'); // a moved to ep2
+  });
+
+  it('clears the source row when moving into an empty target (no duplication)', () => {
+    const rows = mk([
+      { video: v('ep1.mkv'), sub: s('a.srt') },
+      { video: v('ep2.mkv'), sub: null },
+    ]);
+    const out = applyReassign(rows, 'ep2.mkv', s('a.srt'));
+    expect(out[0].sub).toBeNull();
+    expect(out[1].sub?.name).toBe('a.srt');
+    expect(out.filter((r) => r.sub?.id === 'a.srt')).toHaveLength(1);
+  });
+
+  it('clears a subtitle when sub is null', () => {
+    const rows = mk([{ video: v('ep1.mkv'), sub: s('a.srt') }]);
+    const out = applyReassign(rows, 'ep1.mkv', null);
+    expect(out[0].sub).toBeNull();
   });
 });

@@ -178,7 +178,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 .pairs { width: 100%; }
 .pairs .head, .pair-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 26px;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
   align-items: center;
 }
@@ -210,6 +210,9 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
   font-variant-numeric: tabular-nums;
 }
 .cell.video .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cell.sub-cell { min-width: 0; }
+.sub-select { width: 100%; max-width: 100%; padding: 5px 8px; font-size: 12px; cursor: pointer; }
+.hint { margin: 0 0 10px; font-size: 12px; color: var(--text-muted); }
 .sub-chip {
   display: inline-block;
   max-width: 100%;
@@ -248,6 +251,7 @@ button.x:hover { color: var(--danger); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  touch-action: none;
 }
 .sub-card:hover { border-color: var(--accent-border); background: var(--accent-soft); }
 .sub-card.dragging { opacity: .5; }
