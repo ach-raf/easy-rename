@@ -3,7 +3,7 @@ import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } f
 import { Dropzone } from './components/Dropzone';
 import { PatternPanel } from './components/PatternPanel';
 import { PairList } from './components/PairList';
-import { UnmatchedList } from './components/UnmatchedList';
+import { StrayList } from './components/StrayList';
 import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, type RenameOp, type RenameReport, type Preset } from './api';
 import { classify, extOf } from './lib/classify';
 import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, type MediaFile, type Row } from './lib/match';
@@ -288,7 +288,7 @@ export default function App() {
           <p className="hint">Use the dropdown on each row to choose its subtitle — picking one that's already used swaps them. You can also drag from the Unmatched panel.</p>
           <PairList rows={rows} allSubs={subs} pattern={videoPattern} folder={folder} onReassign={reassign} />
         </div>
-        <UnmatchedList subs={unmatchedSubs} folder={folder} />
+        <StrayList subs={unmatchedSubs} folder={folder} />
       </div>
     </DndContext>
   );
