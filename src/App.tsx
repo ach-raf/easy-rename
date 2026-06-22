@@ -246,24 +246,22 @@ export default function App() {
   return (
     <div className="app layout-rail">
       <Topbar onFolder={onFolder} folder={folder} />
-      <main className="work">
-        <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        <main className="work">
           <div className="pairs depth-card">
             <PairList rows={rows} allSubs={subs} pattern={videoPattern} folder={folder} onReassign={reassign} />
           </div>
-        </DndContext>
-      </main>
-      <aside className="rail">
-        <RenamePanel
-          ops={ops} folder={folder} onConflict={onConflict} setOnConflict={setOnConflict}
-          onRun={onRun} onUndo={onUndo} busy={busy} canUndo={lastApplied !== null}
-          report={report} apiError={apiError} totalVideos={rows.length}
-        />
-        {regexEl}
-        <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        </main>
+        <aside className="rail">
+          <RenamePanel
+            ops={ops} folder={folder} onConflict={onConflict} setOnConflict={setOnConflict}
+            onRun={onRun} onUndo={onUndo} busy={busy} canUndo={lastApplied !== null}
+            report={report} apiError={apiError} totalVideos={rows.length}
+          />
+          {regexEl}
           <StrayList subs={unmatchedSubs} folder={folder} />
-        </DndContext>
-      </aside>
+        </aside>
+      </DndContext>
     </div>
   );
 }
