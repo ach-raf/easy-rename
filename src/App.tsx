@@ -9,7 +9,10 @@ import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, type Ren
 import { classify, extOf } from './lib/classify';
 import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, type MediaFile, type Row } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
+import { evaluateSearchReplace, type SearchReplaceOpts } from './lib/searchReplace';
 import { RenamePanel } from './components/RenamePanel';
+import { SearchReplacePanel } from './components/SearchReplacePanel';
+import { SearchReplaceList } from './components/SearchReplaceList';
 import './app.css';
 
 export default function App() {
@@ -33,13 +36,20 @@ export default function App() {
   // empty, then reconciled with whatever is on disk (regex_presets.json in the
   // app config dir) once load resolves.
   const [presets, setPresets] = useState<Preset[]>(REGEX_PRESETS);
+  const [mode, setMode] = useState<'match' | 'searchReplace'>('match');
+  const [srOpts, setSrOpts] = useState<SearchReplaceOpts>({
+    search: '', replace: '', useRegex: false, caseSensitive: false, applyTo: 'both',
+  });
+  const [allFiles, setAllFiles] = useState<{ name: string; path: string }[]>([]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  const ops = useMemo(
+  const matchOps = useMemo(
     () => buildRenamePlan(rows.filter((r) => r.sub).map((r) => ({ video: r.video, sub: r.sub! }))),
     [rows],
   );
+  const srResult = useMemo(() => evaluateSearchReplace(allFiles, srOpts), [allFiles, srOpts]);
+  const ops = mode === 'searchReplace' ? srResult.ops : matchOps;
 
   const unmatchedSubs = useMemo(() => {
     const used = new Set(rows.filter((r) => r.sub).map((r) => r.sub!.id));
@@ -155,8 +165,10 @@ export default function App() {
     const entries = await listFiles(dir, true);
     const vids: MediaFile[] = [];
     const subz: MediaFile[] = [];
+    const all: { name: string; path: string }[] = [];
     for (const e of entries) {
       if (e.is_dir) continue;
+      all.push({ name: e.name, path: e.path });
       const kind = classify(e.name);
       if (kind === 'other') continue;
       const mf: MediaFile = { id: e.path, name: e.name, path: e.path, ext: extOf(e.name), kind };
@@ -164,6 +176,8 @@ export default function App() {
     }
     vids.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     subz.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    all.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    setAllFiles(all);
     // Joint auto-detect: the best pattern per side can live in a different index
     // space and combine to zero pairs, so we pick the (video, sub) pair that
     // yields the most pairs rather than optimizing each side on its own.
@@ -243,9 +257,28 @@ export default function App() {
     />
   );
 
+  if (mode === 'searchReplace') {
+    return (
+      <div className="app layout-sr">
+        <Topbar onFolder={onFolder} folder={folder} mode={mode} onModeChange={setMode} />
+        <aside className="left-panel">
+          <SearchReplacePanel opts={srOpts} onChange={setSrOpts} summary={srResult} />
+          <RenamePanel
+            ops={ops} folder={folder} onConflict={onConflict} setOnConflict={setOnConflict}
+            onRun={onRun} onUndo={onUndo} busy={busy} canUndo={lastApplied !== null}
+            report={report} apiError={apiError} totalVideos={allFiles.length}
+          />
+        </aside>
+        <main className="work">
+          <SearchReplaceList rows={srResult.rows} />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="app layout-rail">
-      <Topbar onFolder={onFolder} folder={folder} />
+      <Topbar onFolder={onFolder} folder={folder} mode={mode} onModeChange={setMode} />
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <main className="work">
           <div className="pairs depth-card">
