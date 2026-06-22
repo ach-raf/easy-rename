@@ -29,3 +29,20 @@ export const loadPresets = () => invoke<Preset[]>('load_presets');
 
 export const savePresets = (presets: Preset[]) =>
   invoke<void>('save_presets', { presets });
+
+export type RenameMode = 'match' | 'searchReplace';
+
+/** Flat camelCase mirror of the Rust `LastRename` struct. */
+export interface LastRenameState {
+  mode: RenameMode;
+  search: string;
+  replace: string;
+  useRegex: boolean;
+  caseSensitive: boolean;
+  applyTo: 'both' | 'name' | 'ext';
+}
+
+export const loadLastRename = () => invoke<LastRenameState | null>('load_last_rename');
+
+export const saveLastRename = (state: LastRenameState) =>
+  invoke<void>('save_last_rename', { state });
