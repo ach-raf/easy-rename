@@ -11,6 +11,10 @@ export function Dropzone({ onFolder, loaded }: Props) {
   const hoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // The native drag/drop listener only exists under the Tauri runtime. Skip it
+    // in a plain browser (e.g. `vite dev` preview) so the component still renders
+    // instead of throwing on the missing `__TAURI_INTERNALS__` global.
+    if (!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return;
     const unlisten = getCurrentWebview().onDragDropEvent((event) => {
       const { type } = event.payload;
       const paths = 'paths' in event.payload ? event.payload.paths : [];

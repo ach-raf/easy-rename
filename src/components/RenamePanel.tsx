@@ -1,7 +1,10 @@
 import type { RenameOp, RenameReport } from '../api';
+import { splitRelative } from '../lib/path';
+import { FilePath } from './FilePath';
 
 interface Props {
   ops: RenameOp[];
+  folder: string;
   onConflict: 'skip' | 'overwrite';
   setOnConflict: (v: 'skip' | 'overwrite') => void;
   onRun: () => void;
@@ -12,7 +15,7 @@ interface Props {
   apiError: string | null;
 }
 
-export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError }: Props) {
+export function RenamePanel({ ops, folder, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError }: Props) {
   return (
     <div className="card rename-panel">
       <div className="bar">
@@ -34,13 +37,13 @@ export function RenamePanel({ ops, onConflict, setOnConflict, onRun, onUndo, bus
         <table className="rename-preview">
           <tbody>
             {ops.map((op) => {
-              const from = op.src.split(/[\\/]/).pop();
-              const to = op.dest.split(/[\\/]/).pop();
+              const f = splitRelative(op.src, folder);
+              const t = splitRelative(op.dest, folder);
               return (
                 <tr key={op.src}>
-                  <td title={from}>{from}</td>
+                  <td><FilePath dir={f.dir} base={f.base} abs={op.src} /></td>
                   <td className="arrow">→</td>
-                  <td className="dest" title={to}>{to}</td>
+                  <td className="dest"><FilePath dir={t.dir} base={t.base} abs={op.dest} /></td>
                 </tr>
               );
             })}

@@ -8,6 +8,8 @@ export interface FileEntry {
 }
 
 export interface RenameOp { src: string; dest: string; }
+
+export interface Preset { label: string; pattern: string; }
 export interface RenameReport {
   applied: RenameOp[];
   skipped: RenameOp[];
@@ -22,3 +24,8 @@ export const renamePairs = (ops: RenameOp[], onConflict: 'skip' | 'overwrite') =
 
 export const undoRenames = (ops: RenameOp[]) =>
   invoke<RenameReport>('undo', { ops });
+
+export const loadPresets = () => invoke<Preset[]>('load_presets');
+
+export const savePresets = (presets: Preset[]) =>
+  invoke<void>('save_presets', { presets });

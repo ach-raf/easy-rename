@@ -16,6 +16,8 @@ pub fn run() {
             commands::list_files,
             commands::rename_pairs,
             commands::undo,
+            commands::load_presets,
+            commands::save_presets,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

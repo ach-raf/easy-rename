@@ -49,18 +49,64 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---------- Layout shell ---------- */
-.app {
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 26px 24px 56px;
+/* ---------- Layout shells (responsive) ---------- */
+/* .app is a plain padded container; one inner shell handles width + layout. */
+.app { padding: 26px 24px 56px; }
+
+/* Empty state (no folder): centered, narrow. */
+.app-empty {
+  max-width: 640px;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
+/* Narrow / default window (< 1100px): single column, original top-to-bottom order. */
+.app-narrow {
+  max-width: 1080px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+/* Two-pane desktop shell — rendered only at >= 1100px (see usePrefersWide in App.tsx). */
+.shell {
+  display: grid;
+  grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  max-width: 1900px;
+  margin-inline: auto;
+}
+.rail {
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0; /* let long filenames shrink/truncate instead of blowing out the grid */
+}
+/* Compact the dropzone + title inside the narrow sticky rail. */
+.rail .dropzone { padding: 16px; text-align: left; }
+.rail .dropzone .dz-icon { font-size: 22px; margin-bottom: 4px; }
+.rail header h1 { font-size: 18px; }
+
 .app header { display: flex; flex-direction: column; gap: 2px; }
 .app h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
 .app header .subtitle { margin: 0; color: var(--text-muted); font-size: 13px; }
+
+/* Widescreen polish (>= 1100px): a touch more air and slightly larger table type. */
+@media (min-width: 1100px) {
+  .card { padding: 18px; }
+  .preview, .rename-preview { font-size: 13px; }
+}
 
 /* ---------- Shared bits ---------- */
 .card {
@@ -152,23 +198,45 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 }
 
 /* ---------- Regex bar ---------- */
-.regexbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.regexbar { display: flex; flex-direction: column; gap: 10px; }
 .regexbar .field { display: flex; flex-direction: column; gap: 5px; }
 .regexbar .field > span { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
-.regexbar input[type=text] { min-width: 240px; }
+.regexbar input[type=text] { min-width: 0; width: 100%; }
 .regexbar input[type=number] { width: 92px; }
-.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.regexbar .regex-side { display: flex; flex-direction: column; gap: 6px; }
+.regexbar .regex-side.disabled { opacity: .55; }
+.regexbar .link-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.regexbar .link-toggle input { margin: 0; }
+/* Scrollable once the saved list grows: a big preset collection stays inside
+   the card instead of pushing the layout around. */
+.presets { display: flex; flex-wrap: wrap; gap: 6px; max-height: 116px; overflow-y: auto; align-content: flex-start; }
 .presets button { padding: 6px 11px; font-size: 12.5px; }
 .presets button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* A preset chip = apply button glued to a small delete ×. */
+.preset { display: inline-flex; align-items: stretch; }
+.preset > button:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.preset-del {
+  padding: 6px 7px; font-size: 14px; line-height: 1; color: var(--text-muted);
+  background: var(--surface-2); border: 1px solid var(--border); border-left: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0; cursor: pointer;
+}
+.preset-del:hover { color: var(--danger); background: var(--danger-soft); }
+.preset-add { border-style: dashed !important; color: var(--accent) !important; }
+.preset-reset { background: none !important; border: none !important; color: var(--text-muted) !important; text-decoration: underline; padding-left: 4px !important; padding-right: 4px !important; }
+.preset-reset:hover { color: var(--text) !important; }
 .regex-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .regex-row .presets { flex: 1 1 auto; }
 
 /* ---------- Index preview tables ---------- */
 .previews { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .preview-wrap h3 { margin-bottom: 8px; }
+/* Show every file: a long folder scrolls inside the card instead of being
+   clipped to the first few rows. max-height (not fixed) keeps short lists
+   scrollbar-free. */
+.preview-scroll { max-height: 360px; overflow-y: auto; }
 .preview { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
 .preview td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-.preview td.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview td.name { overflow-wrap: anywhere; word-break: break-word; }
 .preview td.idx { width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-muted); font-weight: 700; }
 .preview td.idx.miss { color: var(--danger); }
 
@@ -197,7 +265,7 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
 }
 .pair-row + .pair-row { margin-top: 2px; }
 .pair-row.over { background: var(--accent-soft); border-color: var(--accent-border); }
-.cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.cell { font-size: 12.5px; min-width: 0; }
 .cell.video { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cell.video .badge {
   flex: 0 0 auto;
@@ -209,8 +277,13 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px v
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.cell.video .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.cell.sub-cell { min-width: 0; }
+/* File path display: dim the subfolder portion, emphasize the filename, and
+   let long tokens wrap instead of truncating. The full path is in the title. */
+.path { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.path .dir { color: var(--text-muted); }
+.path .base { color: var(--text); }
+.sub-current { display: block; margin-top: 4px; font-size: 12px; }
+.cell.sub-cell { min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
 .sub-select { width: 100%; max-width: 100%; padding: 5px 8px; font-size: 12px; cursor: pointer; }
 .hint { margin: 0 0 10px; font-size: 12px; color: var(--text-muted); }
 .sub-chip {
@@ -248,9 +321,8 @@ button.x:hover { color: var(--danger); }
   margin: 4px 0;
   font-size: 12.5px;
   cursor: grab;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   touch-action: none;
 }
 .sub-card:hover { border-color: var(--accent-border); background: var(--accent-soft); }
@@ -262,9 +334,6 @@ button.x:hover { color: var(--danger); }
   border-radius: var(--radius-sm);
   font-size: 12.5px;
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ---------- Rename panel ---------- */
@@ -276,7 +345,7 @@ button.x:hover { color: var(--danger); }
 .rename-panel summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
 .rename-panel summary::-webkit-details-marker { color: var(--text-muted); }
 .rename-preview { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; table-layout: fixed; }
-.rename-preview td { padding: 4px 6px; border-bottom: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.rename-preview td { padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .rename-preview td.arrow { width: 20px; text-align: center; color: var(--text-muted); }
 .rename-preview td.dest { color: var(--accent); font-weight: 600; }
 

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tauri::Manager;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileEntry {
@@ -20,6 +21,43 @@ pub struct RenameReport {
     pub applied: Vec<RenameOp>,
     pub skipped: Vec<RenameOp>,
     pub errors: Vec<String>,
+}
+
+/// A user-saveable regex quick-pick. Persisted as JSON in the app config dir.
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Preset {
+    pub label: String,
+    pub pattern: String,
+}
+
+/// Where presets live: `<app_config_dir>/regex_presets.json`. Created on first
+/// write; `app_config_dir` is stable across launches and survives reinstalls.
+fn presets_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("regex_presets.json"))
+}
+
+#[tauri::command]
+pub fn load_presets(app: tauri::AppHandle) -> Result<Vec<Preset>, String> {
+    let path = presets_file(&app)?;
+    match std::fs::read_to_string(&path) {
+        Ok(s) => serde_json::from_str(&s).map_err(|e| e.to_string()),
+        // No file yet (first run) → empty; the frontend seeds defaults.
+        Err(_) => Ok(Vec::new()),
+    }
+}
+
+#[tauri::command]
+pub fn save_presets(app: tauri::AppHandle, presets: Vec<Preset>) -> Result<(), String> {
+    let path = presets_file(&app)?;
+    let s = serde_json::to_string_pretty(&presets).map_err(|e| e.to_string())?;
+    // Write to a sibling temp file then move, so a crash mid-write can't leave a
+    // half-written (unparseable) presets file behind.
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, s).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

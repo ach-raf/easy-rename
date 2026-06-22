@@ -47,12 +47,13 @@ export function extractIndex(fileName: string, pattern: string, group = 1): numb
 export function buildPairs(
   videos: MediaFile[],
   subs: MediaFile[],
-  pattern: string,
+  videoPattern: string,
+  subPattern: string,
   shift = 0,
 ): MatchResult {
   const videoByIdx = new Map<number, MediaFile>();
   for (const vid of videos) {
-    const idx = extractIndex(vid.name, pattern);
+    const idx = extractIndex(vid.name, videoPattern);
     if (idx !== null && !videoByIdx.has(idx)) videoByIdx.set(idx, vid);
   }
 
@@ -61,7 +62,7 @@ export function buildPairs(
   const pairs: Pair[] = [];
 
   for (const sub of subs) {
-    const raw = extractIndex(sub.name, pattern);
+    const raw = extractIndex(sub.name, subPattern);
     if (raw === null) continue;
     const target = raw + shift;
     const vid = videoByIdx.get(target);
@@ -74,7 +75,8 @@ export function buildPairs(
 
   pairs.sort(
     (a, b) =>
-      (extractIndex(a.video.name, pattern) ?? 0) - (extractIndex(b.video.name, pattern) ?? 0),
+      (extractIndex(a.video.name, videoPattern) ?? 0) -
+      (extractIndex(b.video.name, videoPattern) ?? 0),
   );
 
   return {
@@ -84,8 +86,9 @@ export function buildPairs(
   };
 }
 
-/** Preset patterns offered in the UI; also the candidates used by auto-detect.
- *  Each must have exactly one capturing group denoting the episode index. */
+/** Default preset patterns — used to seed the saved-presets file on first run
+ *  and as a "Reset to defaults" target. The live list the UI shows is loaded
+ *  from disk (see App.tsx). Each has one capturing group for the episode index. */
 export const REGEX_PRESETS: { label: string; pattern: string }[] = [
   { label: 'Any number', pattern: '(\\d+)' },
   { label: 'S##E##', pattern: 'S\\d+E(\\d+)' },
@@ -95,27 +98,54 @@ export const REGEX_PRESETS: { label: string; pattern: string }[] = [
 ];
 
 /**
- * Pick the candidate pattern that produces the most matched pairs for the given
- * files. Solves the common failure where `(\d+)` grabs a year/resolution and
- * every file collides — for `Show (2004) - S01E01`, `S\d+E(\d+)` wins because it
- * yields N unique pairs vs 1 for `(\d+)`. Ties keep the earliest candidate.
+ * Pick the (video, subtitle) pattern pair that produces the most matched pairs.
+ * Each side can use a different pattern — real libraries often name videos and
+ * subtitles differently, and the best pattern for each side alone can live in a
+ * different index space and combine to zero pairs. So we score the cartesian
+ * product of candidates and keep the max. Ties keep the earliest (video-major)
+ * candidate.
  */
 export function detectBestPattern(
   videos: MediaFile[],
   subs: MediaFile[],
   candidates: string[],
-): string {
-  if (candidates.length === 0) return '(\\d+)';
-  let best = candidates[0];
+): { videoPattern: string; subPattern: string } {
+  if (candidates.length === 0) return { videoPattern: '(\\d+)', subPattern: '(\\d+)' };
+  let bestVideo = candidates[0];
+  let bestSub = candidates[0];
   let bestScore = -1;
-  for (const c of candidates) {
-    const score = buildPairs(videos, subs, c).pairs.length;
-    if (score > bestScore) {
-      bestScore = score;
-      best = c;
+  for (const cv of candidates) {
+    for (const cs of candidates) {
+      const score = buildPairs(videos, subs, cv, cs).pairs.length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestVideo = cv;
+        bestSub = cs;
+      }
     }
   }
-  return best;
+  return { videoPattern: bestVideo, subPattern: bestSub };
+}
+
+/**
+ * Build the auto-detect candidate list from the saved presets: de-duped by
+ * pattern and capped. `detectBestPattern` scores the cartesian product of
+ * candidates (O(n^2)), so an unbounded list — say a hundred saved presets —
+ * would make the "Auto-detect" button crawl. Dedupe + cap keeps it snappy.
+ */
+export function candidatePatterns(
+  presets: { label: string; pattern: string }[],
+  cap = 16,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of presets) {
+    if (!p.pattern || seen.has(p.pattern)) continue;
+    seen.add(p.pattern);
+    out.push(p.pattern);
+    if (out.length >= cap) break;
+  }
+  return out;
 }
 
 /**
