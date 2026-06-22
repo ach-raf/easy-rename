@@ -96,23 +96,10 @@ a:focus-visible,
 .swatch.active { border-color: var(--text); }
 
 /* ============================ STATUS STRIP ============================ */
-.status-strip {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 12px 16px;
-  background: var(--depth-bg-base);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-small);
-}
-.match-progress { display: flex; flex-direction: column; gap: 7px; min-width: 220px; flex: 1 1 260px; }
-.match-num { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
-.match-num .muted { font-size: 14px; font-weight: 500; }
 .progress { height: 8px; border-radius: var(--r-pill); overflow: hidden; }
 .progress-fill { height: 100%; border-radius: inherit;
   background: linear-gradient(90deg, var(--success), oklch(0.8 0.16 150));
   box-shadow: 0 0 12px oklch(0.74 0.16 150 / 0.5); transition: width var(--t-card); }
-
-.status-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
 .pattern-pill {
   display: inline-flex; align-items: center; gap: 9px;
@@ -179,7 +166,6 @@ a:focus-visible,
 
 .arrow { text-align: center; color: var(--text-subtle); font-size: 15px; }
 
-.sub-empty { display: flex; align-items: center; }
 .sub-select {
   width: 100%; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--text);
   background-color: var(--depth-bg-elevated);
@@ -312,17 +298,11 @@ a:focus-visible,
 .rail-hero-row { display: flex; align-items: center; justify-content: space-between; }
 .rail .progress { margin-top: 4px; }
 
-.rail-actions { display: flex; gap: 8px; }
-.rail-actions .depth-button { flex: 1; justify-content: center; }
-
 .rail h3 { margin: 0 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); }
 .rail .pattern-grid { grid-template-columns: 1fr; }
 
 /* ============================ UTIL ============================ */
-.divider { height: 1px; background: var(--border); margin: 4px 0; }
 .row { display: flex; align-items: center; gap: 8px; }
-.kbd { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 5px;
-  background: var(--depth-bg-darkest); box-shadow: var(--shadow-inset); color: var(--text-muted); }
 
 /* ============================ APP ADAPTATIONS ============================ */
 
@@ -343,7 +323,6 @@ a:focus-visible,
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 13px; font-variant-numeric: tabular-nums;
 }
-.topbar .dropzone .dz-change { margin-left: auto; }
 
 /* Big empty-state dropzone (no folder loaded yet). */
 .app-empty .dropzone {
@@ -356,3 +335,11 @@ a:focus-visible,
 
 /* Small labels used by rebuilt components. */
 .hero-k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; color: var(--text-subtle); }
+
+/* Post-rename report callout */
+.report { padding: 10px 12px; border-radius: var(--r-sm); background: var(--success-bg); border: 1px solid var(--success-border); font-size: 13px; }
+.report.has-errors { background: var(--error-bg); border-color: var(--error-border); }
+.report p { margin: 0; }
+.report ul { margin: 6px 0 0; padding-left: 18px; }
+.err { color: var(--error); }
+.api-error { color: var(--error); font-size: 13px; margin: 0; }

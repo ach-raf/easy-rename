@@ -32,7 +32,7 @@ function RowItem({ row, allSubs, pattern, folder, onReassign }: {
         <Icon name="video" />
         <FilePath dir={vRel.dir} base={vRel.base} abs={row.video.path} />
       </div>
-      <div className="arrow">→</div>
+      <div className="arrow"><Icon name="arrow" size={14} /></div>
       <div className="cell sub-cell">
         <select
           className="sub-select"
