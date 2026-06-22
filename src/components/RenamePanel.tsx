@@ -1,6 +1,5 @@
 import type { RenameOp, RenameReport } from '../api';
-import { splitRelative } from '../lib/path';
-import { FilePath } from './FilePath';
+import { Icon } from './icons';
 
 interface Props {
   ops: RenameOp[];
@@ -13,54 +12,78 @@ interface Props {
   canUndo: boolean;
   report: RenameReport | null;
   apiError: string | null;
+  totalVideos?: number;
 }
 
-export function RenamePanel({ ops, folder, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError }: Props) {
+export function RenamePanel({
+  ops, folder, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError, totalVideos,
+}: Props) {
+  void folder; // retained for API symmetry; hero does not render a path table
+  const total = totalVideos && totalVideos > 0 ? totalVideos : ops.length;
+  const ready = ops.length;
+  const remaining = Math.max(0, total - ready);
+  const pct = total > 0 ? Math.round((ready / total) * 100) : 0;
+
   return (
-    <div className="card rename-panel">
-      <div className="bar">
-        <div className="field">
-          <span>On conflict</span>
-          <select value={onConflict} onChange={(e) => setOnConflict(e.target.value as 'skip' | 'overwrite')}>
-            <option value="skip">Skip</option>
-            <option value="overwrite">Overwrite</option>
-          </select>
+    <div className="rename-card">
+      <div className="rail-hero-row">
+        <div>
+          <div className="hero-k">Ready to rename</div>
+          <div className="hero-num">
+            {ready} {remaining > 0 ? <span className="muted">of {total}</span> : null}
+          </div>
         </div>
-        <button className="primary" onClick={onRun} disabled={busy || ops.length === 0}>
-          {busy ? 'Working…' : `Rename ${ops.length} file${ops.length === 1 ? '' : 's'}`}
-        </button>
-        <button onClick={onUndo} disabled={busy || !canUndo}>Undo last</button>
+        {remaining > 0 ? (
+          <span className="badge badge-warning"><Icon name="alert" size={12} /> {remaining} left</span>
+        ) : null}
       </div>
 
-      <details open>
-        <summary>Preview ({ops.length})</summary>
-        <table className="rename-preview">
-          <tbody>
-            {ops.map((op) => {
-              const f = splitRelative(op.src, folder);
-              const t = splitRelative(op.dest, folder);
-              return (
-                <tr key={op.src}>
-                  <td><FilePath dir={f.dir} base={f.base} abs={op.src} /></td>
-                  <td className="arrow">→</td>
-                  <td className="dest"><FilePath dir={t.dir} base={t.base} abs={op.dest} /></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </details>
+      <div className="progress"><div className="progress-fill" style={{ width: pct + '%' }} /></div>
 
-      {report && (
+      <button
+        type="button"
+        className="depth-button-primary"
+        onClick={onRun}
+        disabled={busy || ready === 0}
+      >
+        {busy ? 'Working…' : `Rename ${ready} file${ready === 1 ? '' : 's'}`}
+        {!busy ? <Icon name="arrow" size={16} /> : null}
+      </button>
+
+      <div className="segmented" role="radiogroup" aria-label="On conflict">
+        <span className="seg-label">Conflict</span>
+        <button
+          type="button" role="radio" aria-checked={onConflict === 'skip'}
+          className={'seg' + (onConflict === 'skip' ? ' active' : '')}
+          onClick={() => setOnConflict('skip')}
+        >Skip</button>
+        <button
+          type="button" role="radio" aria-checked={onConflict === 'overwrite'}
+          className={'seg' + (onConflict === 'overwrite' ? ' active' : '')}
+          onClick={() => setOnConflict('overwrite')}
+        >Overwrite</button>
+      </div>
+
+      <button
+        type="button"
+        className="depth-button"
+        onClick={onUndo}
+        disabled={busy || !canUndo}
+        style={{ justifyContent: 'center' }}
+      >
+        <Icon name="undo" size={16} /> Undo last
+      </button>
+
+      {report ? (
         <div className={'report' + (report.errors.length > 0 ? ' has-errors' : '')}>
           <p>✓ Applied: {report.applied.length} · Skipped: {report.skipped.length} · Errors: {report.errors.length}</p>
-          {report.errors.length > 0 && (
+          {report.errors.length > 0 ? (
             <ul>{report.errors.map((e, i) => <li key={i} className="err">{e}</li>)}</ul>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      {apiError && <p className="api-error">{apiError}</p>}
+      {apiError ? <p className="api-error">{apiError}</p> : null}
     </div>
   );
 }

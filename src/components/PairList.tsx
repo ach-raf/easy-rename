@@ -2,6 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { extractIndex } from '../lib/match';
 import { splitRelative } from '../lib/path';
 import { FilePath } from './FilePath';
+import { Icon } from './icons';
 import type { MediaFile, Row } from '../lib/match';
 
 interface Props {
@@ -12,25 +13,26 @@ interface Props {
   onReassign: (videoId: string, sub: MediaFile | null) => void;
 }
 
-function VideoRow({ row, allSubs, pattern, folder, onReassign }: {
+function RowItem({ row, allSubs, pattern, folder, onReassign }: {
   row: Row;
   allSubs: MediaFile[];
   pattern: string;
   folder: string;
   onReassign: (videoId: string, sub: MediaFile | null) => void;
 }) {
-  // The whole row is a drop target (for drag from the Unmatched panel) AND the
-  // subtitle is a <select> so linking works reliably without drag.
   const { setNodeRef, isOver } = useDroppable({ id: 'row:' + row.video.id, data: { videoId: row.video.id } });
   const idx = extractIndex(row.video.name, pattern);
+  const matched = !!row.sub;
   const vRel = splitRelative(row.video.path, folder);
   const subRel = row.sub ? splitRelative(row.sub.path, folder) : null;
   return (
-    <div ref={setNodeRef} className={'pair-row' + (isOver ? ' over' : '')}>
+    <div ref={setNodeRef} className={'pair-row' + (matched ? ' matched' : '') + (isOver ? ' over' : '')}>
+      <div className={'idx' + (idx === null ? ' warn' : '')}>{idx === null ? '—' : idx}</div>
       <div className="cell video">
-        {idx !== null && <span className="badge">{idx}</span>}
+        <Icon name="video" />
         <FilePath dir={vRel.dir} base={vRel.base} abs={row.video.path} />
       </div>
+      <div className="arrow"><Icon name="arrow" size={14} /></div>
       <div className="cell sub-cell">
         <select
           className="sub-select"
@@ -42,15 +44,12 @@ function VideoRow({ row, allSubs, pattern, folder, onReassign }: {
             onReassign(row.video.id, sub);
           }}
         >
-          <option value="">— none —</option>
+          <option value="">Assign subtitle…</option>
           {allSubs.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
-        {subRel ? (
-          <FilePath dir={subRel.dir} base={subRel.base} abs={row.sub!.path} />
-        ) : (
-          <span className="sub-current muted">— none —</span>
-        )}
+        {subRel ? <FilePath dir={subRel.dir} base={subRel.base} abs={row.sub!.path} /> : null}
       </div>
+      <div className="row-state"><span className={'dot ' + (matched ? 'success' : 'warn')} /></div>
     </div>
   );
 }
@@ -58,10 +57,14 @@ function VideoRow({ row, allSubs, pattern, folder, onReassign }: {
 export function PairList({ rows, allSubs, pattern, folder, onReassign }: Props) {
   return (
     <div className="pairs">
-      <div className="head"><div>Video</div><div>Subtitle</div></div>
-      {rows.map((r) => (
-        <VideoRow key={r.video.id} row={r} allSubs={allSubs} pattern={pattern} folder={folder} onReassign={onReassign} />
-      ))}
+      <div className="pairs-head">
+        <h2 className="pairs-title">Match subtitles to videos</h2>
+        <span className="pairs-count">drag a stray subtitle onto a row, or use its menu</span>
+      </div>
+      <div className="pairs-grid-head"><div>#</div><div>Video</div><div></div><div>Subtitle</div><div></div></div>
+      <div className="scroll-area">
+        {rows.map((r) => <RowItem key={r.video.id} row={r} allSubs={allSubs} pattern={pattern} folder={folder} onReassign={onReassign} />)}
+      </div>
     </div>
   );
 }

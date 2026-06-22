@@ -1,30 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Dropzone } from './components/Dropzone';
-import { RegexBar, IndexPreview } from './components/RegexBar';
+import { Topbar } from './components/Topbar';
+import { PatternPanel } from './components/PatternPanel';
 import { PairList } from './components/PairList';
-import { UnmatchedList } from './components/UnmatchedList';
+import { StrayList } from './components/StrayList';
 import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, type RenameOp, type RenameReport, type Preset } from './api';
 import { classify, extOf } from './lib/classify';
 import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, type MediaFile, type Row } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
 import { RenamePanel } from './components/RenamePanel';
 import './app.css';
-
-// Two-pane desktop shell kicks in at this width. JS-driven (not pure CSS) so
-// the narrow layout can keep its original top-to-bottom order while the wide
-// layout moves the rename panel into the sticky rail.
-const WIDE_BREAKPOINT = '(min-width: 1100px)';
-function usePrefersWide(query: string = WIDE_BREAKPOINT): boolean {
-  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const onChange = () => setWide(mql.matches);
-    mql.addEventListener('change', onChange);
-    return () => mql.removeEventListener('change', onChange);
-  }, [query]);
-  return wide;
-}
 
 export default function App() {
   const [folder, setFolder] = useState<string | null>(null);
@@ -49,7 +35,6 @@ export default function App() {
   const [presets, setPresets] = useState<Preset[]>(REGEX_PRESETS);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const wide = usePrefersWide();
 
   const ops = useMemo(
     () => buildRenamePlan(rows.filter((r) => r.sub).map((r) => ({ video: r.video, sub: r.sub! }))),
@@ -60,8 +45,6 @@ export default function App() {
     const used = new Set(rows.filter((r) => r.sub).map((r) => r.sub!.id));
     return subs.filter((s) => !used.has(s.id));
   }, [rows, subs]);
-
-  const linkedCount = useMemo(() => rows.filter((r) => r.sub).length, [rows]);
 
   // De-duped + capped candidate list for auto-detect. detectBestPattern is
   // O(n^2) in candidates, so a big saved-presets list must not flow in raw.
@@ -230,123 +213,55 @@ export default function App() {
     }
   };
 
-  // Each section is built once and composed differently per layout, so the
-  // narrow column keeps today's order (rename last) while the wide shell moves
-  // rename into the sticky rail. No handler/prop wiring is duplicated.
-  const headerEl = (
-    <header>
-      <h1>Easy Rename</h1>
-      <p className="subtitle">Match subtitles to videos by episode number, then rename in one click.</p>
-    </header>
-  );
-  const dropzoneEl = <Dropzone onFolder={onFolder} loaded={folder} />;
-
+  // Empty state: big dropzone centered on the canvas. No rail yet.
   if (!folder) {
     return (
       <div className="app">
         <div className="app-empty">
-          {headerEl}
-          {dropzoneEl}
+          <header>
+            <h1>Easy Rename</h1>
+            <p className="subtitle">Match subtitles to videos by episode number, then rename in one click.</p>
+          </header>
+          <Dropzone onFolder={onFolder} loaded={folder} />
         </div>
       </div>
     );
   }
 
-  const countsEl = (
-    <p className="counts"><strong>{videos.length}</strong> videos · <strong>{subs.length}</strong> subtitles</p>
-  );
+  // Command rail: full-width Topbar (brand + folder chip + theme), the PairList
+  // work area, and a right rail with RenamePanel (hero), PatternPanel, StrayList.
   const regexEl = (
-    <RegexBar
-      videoPattern={videoPattern}
-      subPattern={subPattern}
-      linked={linked}
-      onVideoPattern={changeVideoPattern}
-      onSubPattern={changeSubPattern}
-      onToggleLinked={toggleLinked}
-      shift={shift}
-      setShift={setShift}
-      presets={presets}
-      onSavePreset={savePreset}
-      onDeletePreset={deletePreset}
+    <PatternPanel
+      videoPattern={videoPattern} subPattern={subPattern} linked={linked}
+      onVideoPattern={changeVideoPattern} onSubPattern={changeSubPattern}
+      onToggleLinked={toggleLinked} shift={shift} setShift={setShift}
+      presets={presets} onSavePreset={savePreset} onDeletePreset={deletePreset}
       onResetPresets={resetPresets}
-    />
-  );
-  const presetsEl = (
-    <div className="regex-row">
-      <div className="presets">
-        <button onClick={() => recompute(videos, subs, videoPattern, subPattern, shift)}>Re-match</button>
-        <button onClick={onAutoDetect}>Auto-detect pattern</button>
-      </div>
-    </div>
-  );
-  const previewsEl = (
-    <div className="previews">
-      <div className="card preview-wrap">
-        <h3>Videos</h3>
-        <IndexPreview files={videos} pattern={videoPattern} folder={folder} />
-      </div>
-      <div className="card preview-wrap">
-        <h3>Subtitles</h3>
-        <IndexPreview files={subs} pattern={subPattern} folder={folder} />
-      </div>
-    </div>
-  );
-  const pairsEl = (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-      <div className="layout">
-        <div className="card">
-          <h3>Link each video to a subtitle ({linkedCount}/{rows.length})</h3>
-          <p className="hint">Use the dropdown on each row to choose its subtitle — picking one that's already used swaps them. You can also drag from the Unmatched panel.</p>
-          <PairList rows={rows} allSubs={subs} pattern={videoPattern} folder={folder} onReassign={reassign} />
-        </div>
-        <UnmatchedList subs={unmatchedSubs} folder={folder} />
-      </div>
-    </DndContext>
-  );
-  const renameEl = (
-    <RenamePanel
-      ops={ops}
-      folder={folder}
-      onConflict={onConflict}
-      setOnConflict={setOnConflict}
-      onRun={onRun}
-      onUndo={onUndo}
-      busy={busy}
-      canUndo={lastApplied !== null}
-      report={report}
-      apiError={apiError}
+      previewFiles={videos.slice(0, 5)}
+      onAutoDetect={onAutoDetect}
+      onReMatch={() => recompute(videos, subs, videoPattern, subPattern, shift)}
     />
   );
 
   return (
-    <div className="app">
-      {wide ? (
-        <div className="shell">
-          <aside className="rail">
-            {headerEl}
-            {dropzoneEl}
-            {countsEl}
-            {regexEl}
-            {presetsEl}
-            {renameEl}
-          </aside>
-          <main className="content">
-            {previewsEl}
-            {pairsEl}
-          </main>
-        </div>
-      ) : (
-        <div className="app-narrow">
-          {headerEl}
-          {dropzoneEl}
-          {countsEl}
+    <div className="app layout-rail">
+      <Topbar onFolder={onFolder} folder={folder} />
+      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        <main className="work">
+          <div className="pairs depth-card">
+            <PairList rows={rows} allSubs={subs} pattern={videoPattern} folder={folder} onReassign={reassign} />
+          </div>
+        </main>
+        <aside className="rail">
+          <RenamePanel
+            ops={ops} folder={folder} onConflict={onConflict} setOnConflict={setOnConflict}
+            onRun={onRun} onUndo={onUndo} busy={busy} canUndo={lastApplied !== null}
+            report={report} apiError={apiError} totalVideos={rows.length}
+          />
           {regexEl}
-          {presetsEl}
-          {previewsEl}
-          {pairsEl}
-          {renameEl}
-        </div>
-      )}
+          <StrayList subs={unmatchedSubs} folder={folder} />
+        </aside>
+      </DndContext>
     </div>
   );
 }
