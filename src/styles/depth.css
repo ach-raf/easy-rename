@@ -1,0 +1,196 @@
+/* ==========================================================================
+   depth.css — Depth Design System (portable, no Tailwind required)
+   OKLCH neutrals on hue 264 · four elevation layers · composite shadows
+   with the inset top-highlight · light + dark via body.light
+   Drop straight into the real app as the design-token stylesheet.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Elevation layers (DARK default) ---- */
+  --depth-bg-darkest:        oklch(0.165 0.008 264);
+  --depth-bg-base:           oklch(0.215 0.012 264);
+  --depth-bg-elevated:       oklch(0.285 0.018 264);
+  --depth-bg-elevated-hover: oklch(0.325 0.020 264);
+
+  /* ---- Text ---- */
+  --text:        oklch(0.96 0.004 264);
+  --text-muted:  oklch(0.72 0.014 264);
+  --text-subtle: oklch(0.55 0.016 264);
+
+  /* ---- Borders ---- */
+  --border:        oklch(0 0 0 / 0.25);
+  --border-strong: oklch(0 0 0 / 0.42);
+  --border-hi:     oklch(1 0 0 / 0.07);   /* inset top-highlight */
+
+  /* ---- Composite shadows: inset-highlight + sharp-edge + diffuse-ambient ---- */
+  --shadow-inset:        inset 0 1px 2px oklch(0.04 0.01 264 / 0.70), inset 0 0 0 1px oklch(0 0 0 / 0.30);
+  --shadow-small:        inset 0 1px 0 var(--border-hi), 0 1px 2px oklch(0 0 0 / 0.50), 0 1px 1px oklch(0 0 0 / 0.25);
+  --shadow-small-hover:  inset 0 1px 0 var(--border-hi), 0 2px 4px oklch(0 0 0 / 0.55), 0 6px 12px oklch(0 0 0 / 0.30);
+  --shadow-medium:       inset 0 1px 0 var(--border-hi), 0 2px 4px oklch(0 0 0 / 0.40), 0 10px 22px oklch(0 0 0 / 0.32);
+  --shadow-medium-hover: inset 0 1px 0 var(--border-hi), 0 4px 8px oklch(0 0 0 / 0.45), 0 18px 38px oklch(0 0 0 / 0.36);
+  --shadow-large:        inset 0 1px 0 oklch(1 0 0 / 0.10), 0 6px 14px oklch(0 0 0 / 0.50), 0 24px 48px oklch(0 0 0 / 0.42);
+  --shadow-large-hover:  inset 0 1px 0 oklch(1 0 0 / 0.12), 0 10px 20px oklch(0 0 0 / 0.55), 0 32px 64px oklch(0 0 0 / 0.46);
+  --shadow-xlarge:       inset 0 1px 0 oklch(1 0 0 / 0.12), 0 12px 28px oklch(0 0 0 / 0.55), 0 44px 80px oklch(0 0 0 / 0.46);
+
+  /* ---- Accent (default info-blue, hue 250). Swatch picker overrides --accent-hue. ---- */
+  --accent-hue: 250;
+  --accent:        oklch(0.66 0.18 var(--accent-hue));
+  --accent-hover:  oklch(0.60 0.19 var(--accent-hue));
+  --accent-press:  oklch(0.55 0.19 var(--accent-hue));
+  --accent-fg:     oklch(0.99 0 0);
+  --accent-soft:   oklch(0.66 0.18 var(--accent-hue) / 0.14);
+  --accent-border: oklch(0.66 0.18 var(--accent-hue) / 0.42);
+
+  /* ---- Semantic colors (fg / bg / border) ---- */
+  --success:        oklch(0.74 0.16 150);
+  --success-bg:     oklch(0.74 0.16 150 / 0.12);
+  --success-border: oklch(0.74 0.16 150 / 0.34);
+  --warning:        oklch(0.80 0.15 80);
+  --warning-bg:     oklch(0.80 0.15 80 / 0.12);
+  --warning-border: oklch(0.80 0.15 80 / 0.36);
+  --error:          oklch(0.70 0.20 25);
+  --error-bg:       oklch(0.70 0.20 25 / 0.12);
+  --error-border:   oklch(0.70 0.20 25 / 0.40);
+  --info:           oklch(0.72 0.14 250);
+  --sub-fg:         oklch(0.78 0.12 280);
+  --sub-bg:         oklch(0.78 0.12 280 / 0.12);
+  --sub-border:     oklch(0.78 0.12 280 / 0.30);
+
+  /* ---- Radius, motion, type ---- */
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px; --r-pill: 999px;
+  --t-fast: 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+  --t-card: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  --mono: "SF Mono", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+}
+
+/* ============================ LIGHT THEME ============================ */
+body.light {
+  color-scheme: light;
+  --depth-bg-darkest:        oklch(0.925 0.004 264);
+  --depth-bg-base:           oklch(0.975 0.003 264);
+  --depth-bg-elevated:       oklch(1 0 0);
+  --depth-bg-elevated-hover: oklch(0.975 0.004 264);
+
+  --text:        oklch(0.26 0.02 264);
+  --text-muted:  oklch(0.50 0.020 264);
+  --text-subtle: oklch(0.60 0.014 264);
+
+  --border:        oklch(0.25 0.02 264 / 0.12);
+  --border-strong: oklch(0.25 0.02 264 / 0.22);
+  --border-hi:     oklch(1 0 0 / 0.9);
+
+  --shadow-inset:        inset 0 1px 2px oklch(0.30 0.02 264 / 0.26), inset 0 0 0 1px oklch(0.30 0.02 264 / 0.14);
+  --shadow-small:        inset 0 1px 0 var(--border-hi), 0 1px 2px oklch(0.25 0.03 264 / 0.10), 0 1px 1px oklch(0.25 0.03 264 / 0.06);
+  --shadow-small-hover:  inset 0 1px 0 var(--border-hi), 0 2px 5px oklch(0.25 0.03 264 / 0.12), 0 6px 14px oklch(0.25 0.03 264 / 0.08);
+  --shadow-medium:       inset 0 1px 0 var(--border-hi), 0 1px 3px oklch(0.25 0.03 264 / 0.10), 0 8px 20px oklch(0.25 0.03 264 / 0.08);
+  --shadow-medium-hover: inset 0 1px 0 var(--border-hi), 0 4px 10px oklch(0.25 0.03 264 / 0.12), 0 16px 34px oklch(0.25 0.03 264 / 0.12);
+  --shadow-large:        inset 0 1px 0 var(--border-hi), 0 6px 14px oklch(0.25 0.03 264 / 0.14), 0 26px 50px oklch(0.25 0.03 264 / 0.12);
+  --shadow-large-hover:  inset 0 1px 0 var(--border-hi), 0 10px 22px oklch(0.25 0.03 264 / 0.16), 0 34px 64px oklch(0.25 0.03 264 / 0.14);
+  --shadow-xlarge:       inset 0 1px 0 var(--border-hi), 0 12px 28px oklch(0.25 0.03 264 / 0.18), 0 44px 84px oklch(0.25 0.03 264 / 0.16);
+
+  --accent-soft: oklch(0.62 0.20 var(--accent-hue) / 0.10);
+}
+
+/* ============================ COMPONENT CLASSES ============================ */
+
+.depth-card {
+  background: var(--depth-bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-medium);
+  transition: transform var(--t-card), box-shadow var(--t-card), background var(--t-card), border-color var(--t-card);
+}
+.depth-card-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-medium-hover); }
+
+.depth-interactive {
+  background: var(--depth-bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-small);
+  transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+  cursor: pointer;
+}
+.depth-interactive:hover  { background: var(--depth-bg-elevated-hover); box-shadow: var(--shadow-small-hover); transform: translateY(-1px); }
+.depth-interactive:active { transform: translateY(0); box-shadow: var(--shadow-inset); }
+
+.depth-button {
+  font: inherit; font-weight: 600; font-size: 13.5px;
+  color: var(--text);
+  background: linear-gradient(180deg, var(--depth-bg-elevated-hover), var(--depth-bg-elevated));
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 9px 15px;
+  cursor: pointer;
+  box-shadow: var(--shadow-small);
+  transition: all var(--t-fast);
+  display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+}
+.depth-button:hover  { box-shadow: var(--shadow-small-hover); transform: translateY(-1px); border-color: var(--border-strong); }
+.depth-button:active { transform: translateY(0); box-shadow: var(--shadow-inset); }
+
+.depth-button-ghost {
+  background: transparent; border: 1px solid transparent; box-shadow: none;
+  color: var(--text-muted); padding: 7px 11px; border-radius: var(--r-sm);
+  cursor: pointer; font: inherit; font-size: 13px; font-weight: 500;
+  transition: all var(--t-fast); display: inline-flex; align-items: center; gap: 7px;
+}
+.depth-button-ghost:hover { background: var(--depth-bg-elevated); color: var(--text); }
+
+.depth-button-primary {
+  position: relative; overflow: hidden;
+  font: inherit; font-weight: 700; font-size: 14px;
+  color: var(--accent-fg);
+  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
+  border: 1px solid var(--accent-press);
+  border-radius: var(--r-sm);
+  padding: 11px 22px;
+  cursor: pointer;
+  box-shadow: var(--shadow-small), 0 0 0 1px var(--accent-border), inset 0 1px 0 oklch(1 0 0 / 0.25);
+  transition: all var(--t-fast);
+  display: inline-flex; align-items: center; gap: 10px; white-space: nowrap;
+}
+.depth-button-primary::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 28%, oklch(1 0 0 / 0.28) 50%, transparent 72%);
+  transform: translateX(-130%);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.depth-button-primary:hover  { box-shadow: var(--shadow-large); transform: translateY(-1px); }
+.depth-button-primary:hover::before { transform: translateX(130%); }
+.depth-button-primary:active { transform: translateY(0); box-shadow: var(--shadow-small); }
+
+.depth-button:disabled, .depth-button-primary:disabled, .is-disabled {
+  background: var(--depth-bg-base) !important; color: var(--text-subtle) !important;
+  border-color: var(--border) !important; box-shadow: var(--shadow-inset) !important;
+  opacity: 0.55; cursor: not-allowed; transform: none !important;
+}
+.depth-button-primary:disabled::before, .depth-button-primary.is-disabled::before { display: none; }
+
+.depth-inset {
+  background: var(--depth-bg-darkest);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-inset);
+}
+
+.depth-floating {
+  background: var(--depth-bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-large);
+  transition: all var(--t-card);
+}
+.depth-floating:hover { transform: translateY(-3px); box-shadow: var(--shadow-large-hover); }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;
+  padding: 2px 9px; border-radius: var(--r-pill); border: 1px solid transparent;
+  font-variant-numeric: tabular-nums; }
+.badge-success { background: var(--success-bg); color: var(--success); border-color: var(--success-border); }
+.badge-warning { background: var(--warning-bg); color: var(--warning); border-color: var(--warning-border); }
+.badge-error   { background: var(--error-bg);   color: var(--error);   border-color: var(--error-border); }
+.badge-info    { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+.badge-neutral { background: var(--depth-bg-elevated); color: var(--text-muted); border-color: var(--border); box-shadow: var(--shadow-small); }
