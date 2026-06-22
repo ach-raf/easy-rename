@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Dropzone } from './components/Dropzone';
 import { Topbar } from './components/Topbar';
 import { PatternPanel } from './components/PatternPanel';
 import { PairList } from './components/PairList';
 import { StrayList } from './components/StrayList';
-import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, type RenameOp, type RenameReport, type Preset } from './api';
+import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, loadLastRename, saveLastRename, type RenameOp, type RenameReport, type Preset } from './api';
 import { classify, extOf } from './lib/classify';
 import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, type MediaFile, type Row } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
@@ -42,6 +42,8 @@ export default function App() {
   });
   const [allFiles, setAllFiles] = useState<{ name: string; path: string }[]>([]);
 
+  const hydratedRef = useRef(false);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const matchOps = useMemo(
@@ -71,6 +73,29 @@ export default function App() {
       .catch(() => { /* keep seed defaults */ });
     return () => { cancelled = true; };
   }, []);
+
+  // Restore last-used Search & Replace inputs + mode on launch.
+  useEffect(() => {
+    let cancelled = false;
+    loadLastRename()
+      .then((s) => {
+        if (cancelled || !s) return;
+        setMode(s.mode);
+        setSrOpts({ search: s.search, replace: s.replace, useRegex: s.useRegex, caseSensitive: s.caseSensitive, applyTo: s.applyTo });
+      })
+      .catch(() => { /* first run or unreadable — keep defaults */ })
+      .finally(() => { if (!cancelled) hydratedRef.current = true; });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Debounced-save the SR inputs + mode whenever they change (after hydration).
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const id = setTimeout(() => {
+      saveLastRename({ mode, ...srOpts }).catch((e) => setApiError(String(e)));
+    }, 400);
+    return () => clearTimeout(id);
+  }, [mode, srOpts]);
 
   // Persist the full list to disk whenever it changes. Fire-and-forget; a write
   // failure surfaces as the global apiError like the rename commands do.
