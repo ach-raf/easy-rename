@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Easy Rename — Search &amp; Replace · Variant 1 (rail)</title>
+<link rel="stylesheet" href="depth.css" />
+<link rel="stylesheet" href="mock.css" />
+<style>
+  /* ===== Search & Replace shared component styles ===== */
+  .mode-switch { margin-left: 6px; }
+  .mode-switch .seg { padding: 6px 11px; }
+
+  .sr-controls { display:flex; flex-direction:column; gap:14px; }
+  .sr-controls h3 { margin:0 0 2px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-subtle); }
+  .sr-fields { display:flex; flex-direction:column; gap:12px; }
+  .sr-field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .sr-field > label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-subtle); }
+  .sr-input-wrap { position:relative; display:flex; align-items:center; }
+  .sr-input-wrap .lead-icon { position:absolute; left:10px; color:var(--text-subtle); pointer-events:none; width:15px; height:15px; }
+  .sr-input-wrap .text-input { padding-left:32px; width:100%; }
+  .sr-toggles { display:flex; flex-direction:column; gap:11px; }
+  .sr-toggles .link-toggle { font-size:13px; color:var(--text); }
+  .sr-field .sub-select { width:100%; }
+  .summary-row { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+  .summary-row .badge { font-size:11.5px; }
+  .sr-saved { margin:0; }
+
+  /* preview table (original -> renamed) */
+  .preview-card { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+  .preview-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:14px 16px 10px; }
+  .preview-head h2 { margin:0; font-size:14px; font-weight:700; }
+  .preview-head .count { font-size:12.5px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .preview-grid-head { display:grid; grid-template-columns:34px minmax(0,1fr) 30px minmax(0,1fr) 30px; gap:10px; align-items:center; padding:0 16px 8px; margin:0 8px; border-bottom:1px solid var(--border); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-subtle); }
+  .preview-grid-head .count { font-family:var(--mono); color:var(--text-muted); margin-left:4px; text-transform:none; letter-spacing:0; }
+  .preview-row { display:grid; grid-template-columns:34px minmax(0,1fr) 30px minmax(0,1fr) 30px; gap:10px; align-items:center; padding:8px 10px; border-radius:var(--r-sm); border:1px solid transparent; transition:background var(--t-fast), border-color var(--t-fast); }
+  .preview-row + .preview-row { margin-top:2px; }
+  .preview-row:hover { background:var(--depth-bg-elevated); }
+  .preview-row .file { display:flex; align-items:center; gap:8px; min-width:0; }
+  .preview-row .file .icon { flex:0 0 auto; width:15px; height:15px; color:var(--text-muted); }
+  .preview-row .file.sub .icon { color:var(--sub-fg); }
+  .preview-row .file .name { font-family:var(--mono); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .preview-row.matched .renamed .name { color:var(--accent); }
+  .preview-row.unmatched { opacity:0.5; }
+  .preview-row.unmatched .renamed .name { color:var(--text-subtle); font-style:italic; }
+  .preview-row .arrow { text-align:center; color:var(--text-subtle); font-size:14px; }
+</style>
+</head>
+<body class="layout-rail">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M4 8h7M4 8l3-3M4 8l3 3"/><path d="M20 16h-7M20 16l-3-3M20 16l-3 3"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><path d="M15 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M15 3v4h4"/><path d="M11 10.5v4l3-2z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-captions" viewBox="0 0 24 24"><path d="M15 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M15 3v4h4"/><path d="M8.5 13h7M8.5 16h4"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-7 7"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.5-5.8L20 8"/><path d="M20 4v4h-4"/><path d="M20 12a8 8 0 0 1-13.5 5.8L4 16"/><path d="M4 20v-4h4"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10h-1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+</svg>
+
+<div class="app">
+
+  <!-- ============ TOPBAR ============ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo"><svg class="icon"><use href="#i-logo"/></svg></span>
+      Easy Rename
+    </div>
+    <div class="folder-chip">
+      <svg class="icon"><use href="#i-folder"/></svg>
+      <span class="path"><span class="dir">~/Anime/</span>Major.S3</span>
+      <button class="depth-button-ghost change"><svg class="icon-sm icon"><use href="#i-refresh"/></svg>Change</button>
+    </div>
+    <div class="segmented mode-switch" role="radiogroup" aria-label="Mode">
+      <span class="label">Mode</span>
+      <button type="button" class="seg">Match Subtitles</button>
+      <button type="button" class="seg active">Search &amp; Replace</button>
+    </div>
+    <div class="topbar-right">
+      <div class="swatches" title="Accent">
+        <span class="swatch active" data-hue="250" style="background:oklch(0.66 0.18 250)"></span>
+        <span class="swatch" data-hue="295" style="background:oklch(0.66 0.18 295)"></span>
+        <span class="swatch" data-hue="155" style="background:oklch(0.66 0.18 155)"></span>
+        <span class="swatch" data-hue="70"  style="background:oklch(0.7 0.16 70)"></span>
+        <span class="swatch" data-hue="15"  style="background:oklch(0.66 0.18 15)"></span>
+      </div>
+      <button class="icon-btn" id="themeToggle" title="Toggle theme"><svg class="icon"><use href="#i-sun"/></svg></button>
+    </div>
+  </header>
+
+  <!-- ============ WORK: Original -> Renamed preview ============ -->
+  <section class="work">
+    <div class="pairs depth-card preview-card">
+      <div class="preview-head">
+        <h2 class="pairs-title">Search &amp; Replace preview</h2>
+        <span class="count">8 files in scope</span>
+      </div>
+      <div class="preview-grid-head">
+        <div>#</div><div>Original <span class="count">8</span></div><div></div><div>Renamed <span class="count">6</span></div><div></div>
+      </div>
+      <div class="scroll-area">
+        <div class="preview-row unmatched"><div class="idx">—</div><div class="file"><svg class="icon"><use href="#i-folder"/></svg><span class="name">Season 3</span></div><div class="arrow">·</div><div class="file renamed"><span class="name">— folder skipped</span></div><div class="row-state"><span class="dot warn"></span></div></div>
+        <div class="preview-row matched"><div class="idx">01</div><div class="file sub"><svg class="icon"><use href="#i-captions"/></svg><span class="name">[Shiniori-Raws] Major S3 - 01 (BD 1920x1080 x264 10bit FLAC).ass</span></div><div class="arrow">→</div><div class="file renamed"><svg class="icon" style="color:var(--accent)"><use href="#i-captions"/></svg><span class="name">[Shiniori-Raws] Major (2004) - S03E01 (BD 1920x1080 x264 10bit FLAC).ass</span></div><div class="row-state"><span class="dot success"></span></div></div>
+        <div class="preview-row matched"><div class="idx">02</div><div class="file"><svg class="icon"><use href="#i-video"/></svg><span class="name">[Shiniori-Raws] Major S3 - 01 (BD 1920x1080 x264 10bit FLAC).mkv</span></div><div class="arrow">→</div><div class="file renamed"><svg class="icon" style="color:var(--accent)"><use href="#i-video"/></svg><span class="name">[Shiniori-Raws] Major (2004) - S03E01 (BD 1920x1080 x264 10bit FLAC).mkv</span></div><div class="row-state"><span class="dot success"></span></div></div>
+        <div class="preview-row matched"><div class="idx">03</div><div class="file sub"><svg class="icon"><use href="#i-captions"/></svg><span class="name">[Shiniori-Raws] Major S3 - 02 (BD 1920x1080 x264 10bit FLAC).ass</span></div><div class="arrow">→</div><div class="file renamed"><svg class="icon" style="color:var(--accent)"><use href="#i-captions"/></svg><span class="name">[Shiniori-Raws] Major (2004) - S03E02 (BD 1920x1080 x264 10bit FLAC).ass</span></div><div class="row-state"><span class="dot success"></span></div></div>
+        <div class="preview-row matched"><div class="idx">04</div><div class="file"><svg class="icon"><use href="#i-video"/></svg><span class="name">[Shiniori-Raws] Major S3 - 02 (BD 1920x1080 x264 10bit FLAC).mkv</span></div><div class="arrow">→</div><div class="file renamed"><svg class="icon" style="color:var(--accent)"><use href="#i-video"/></svg><span class="name">[Shiniori-Raws] Major (2004) - S03E02 (BD 1920x1080 x264 10bit FLAC).mkv</span></div><div class="row-state"><span class="dot success"></span></div></div>
+        <div class="preview-row matched"><div class="idx">05</div><div class="file sub"><svg class="icon"><use href="#i-captions"/></svg><span class="name">[Shiniori-Raws] Major S3 - 03 (BD 1920x1080 x264 10bit FLAC).ass</span></div><div class="arrow">→</div><div class="file renamed"><svg class="icon" style="color:var(--accent)"><use href="#i-captions"/></svg><span class="name">[Shiniori-Raws] Major (2004) - S03E03 (BD 1920x1080 x264 10bit FLAC).ass</span></div><div class="row-state"><span class="dot success"></span></div></div>
+        <div class="preview-row matched"><div class="idx">06</div><div class="file"><svg class="icon"><use href="#i-video"/></svg><span class="name">[Shiniori-Raws] Major S3 - 03 (BD 1920x1080 x264 10bit FLAC).mkv</span></div><div class="arrow">→</div><div class="file renamed"><svg class="icon" style="color:var(--accent)"><use href="#i-video"/></svg><span class="name">[Shiniori-Raws] Major (2004) - S03E03 (BD 1920x1080 x264 10bit FLAC).mkv</span></div><div class="row-state"><span class="dot success"></span></div></div>
+        <div class="preview-row unmatched"><div class="idx">—</div><div class="file"><svg class="icon"><use href="#i-image"/></svg><span class="name">thumbnails.jpg</span></div><div class="arrow">·</div><div class="file renamed"><span class="name">— no match</span></div><div class="row-state"><span class="dot warn"></span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RAIL: controls + hero ============ -->
+  <aside class="rail">
+
+    <!-- Search & Replace controls -->
+    <div class="depth-card rail-section sr-controls">
+      <h3>Search &amp; Replace</h3>
+      <div class="sr-fields">
+        <div class="sr-field">
+          <label>Search for</label>
+          <div class="sr-input-wrap">
+            <svg class="icon lead-icon"><use href="#i-search"/></svg>
+            <input class="text-input" value="[Shiniori-Raws] Major S3 - " />
+          </div>
+        </div>
+        <div class="sr-field">
+          <label>Replace with</label>
+          <input class="text-input" value="[Shiniori-Raws] Major (2004) - S03E" />
+        </div>
+      </div>
+      <div class="sr-toggles">
+        <label class="link-toggle"><input type="checkbox" /><span class="switch"></span>Use regular expressions</label>
+        <label class="link-toggle"><input type="checkbox" /><span class="switch"></span>Case sensitive</label>
+      </div>
+      <div class="sr-field">
+        <label>Apply to</label>
+        <select class="sub-select">
+          <option>Filename + extension</option>
+          <option>Filename only</option>
+          <option>Extension only</option>
+        </select>
+      </div>
+      <div class="summary-row">
+        <span class="badge badge-success">6 matched</span>
+        <span class="badge badge-neutral">2 unmatched</span>
+        <span class="badge badge-info">0 conflicts</span>
+      </div>
+      <p class="hint sr-saved">Auto-saved — restored on next launch.</p>
+    </div>
+
+    <!-- hero: the main quest -->
+    <div class="rename-card">
+      <div class="rail-hero-row">
+        <div>
+          <div class="subtle" style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">Will rename</div>
+          <div class="hero-num">6 <span class="muted">of 8</span></div>
+        </div>
+        <span class="badge badge-neutral"><svg class="icon" style="width:12px;height:12px"><use href="#i-folder"/></svg>2 skipped</span>
+      </div>
+      <div class="progress"><div class="progress-fill" style="width:75%"></div></div>
+      <button class="depth-button-primary">Rename 6 files <svg class="icon-sm icon"><use href="#i-arrow"/></svg></button>
+      <div class="row" style="gap:8px">
+        <div class="segmented" style="flex:1"><span class="label">Conflict</span><button class="seg active">Skip</button><button class="seg">Overwrite</button></div>
+      </div>
+      <button class="depth-button is-disabled" style="justify-content:center"><svg class="icon-sm icon"><use href="#i-undo"/></svg>Undo last</button>
+    </div>
+
+  </aside>
+
+</div>
+
+<script>
+  const tBtn = document.getElementById('themeToggle');
+  const setThemeIcon = () => {
+    const light = document.body.classList.contains('light');
+    tBtn.querySelector('use').setAttribute('href', light ? '#i-moon' : '#i-sun');
+  };
+  setThemeIcon();
+  tBtn.addEventListener('click', () => { document.body.classList.toggle('light'); setThemeIcon(); });
+
+  document.querySelectorAll('.swatch').forEach(s => s.addEventListener('click', () => {
+    document.documentElement.style.setProperty('--accent-hue', s.dataset.hue);
+    document.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+    s.classList.add('active');
+  }));
+
+  document.querySelectorAll('.seg').forEach(b => b.addEventListener('click', () => {
+    b.parentElement.querySelectorAll('.seg').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  }));
+</script>
+</body>
+</html>
