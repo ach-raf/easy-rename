@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { open } from '@tauri-apps/plugin-dialog';
+import { Icon } from './icons';
 
 interface Props {
   onFolder: (dir: string) => void;
@@ -34,13 +35,16 @@ export function Dropzone({ onFolder, loaded }: Props) {
   };
 
   return (
-    <div className="dropzone" ref={hoverRef} onClick={pick}>
-      <div className="dz-icon">{loaded ? '📂' : '🗂️'}</div>
-      <p className="dz-title">{loaded ? 'Folder loaded — drop another to switch' : 'Drop a folder here'}</p>
+    <div className="dropzone" ref={hoverRef} onClick={pick} role="button" tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }}>
+      <span className="dz-icon"><Icon name={loaded ? 'folder' : 'folder'} /></span>
       {loaded ? (
         <p><span className="dz-path" title={loaded}>{loaded}</span></p>
       ) : (
-        <p className="muted">or click to browse · videos + subtitles are auto-detected</p>
+        <>
+          <p className="dz-title">Drop a folder here</p>
+          <p className="muted">or click to browse · videos + subtitles are auto-detected</p>
+        </>
       )}
     </div>
   );
