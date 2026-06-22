@@ -37,7 +37,7 @@ export function Dropzone({ onFolder, loaded }: Props) {
   return (
     <div className="dropzone" ref={hoverRef} onClick={pick} role="button" tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }}>
-      <span className="dz-icon"><Icon name={loaded ? 'folder' : 'folder'} /></span>
+      <span className="dz-icon"><Icon name="folder" /></span>
       {loaded ? (
         <p><span className="dz-path" title={loaded}>{loaded}</span></p>
       ) : (
