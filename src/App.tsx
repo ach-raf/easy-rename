@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { Dropzone } from './components/Dropzone';
-import { RegexBar, IndexPreview } from './components/RegexBar';
+import { PatternPanel } from './components/PatternPanel';
 import { PairList } from './components/PairList';
 import { UnmatchedList } from './components/UnmatchedList';
 import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, type RenameOp, type RenameReport, type Preset } from './api';
@@ -256,20 +256,20 @@ export default function App() {
     <p className="counts"><strong>{videos.length}</strong> videos · <strong>{subs.length}</strong> subtitles</p>
   );
   const regexEl = (
-    <RegexBar
-      videoPattern={videoPattern}
-      subPattern={subPattern}
-      linked={linked}
-      onVideoPattern={changeVideoPattern}
-      onSubPattern={changeSubPattern}
-      onToggleLinked={toggleLinked}
-      shift={shift}
-      setShift={setShift}
-      presets={presets}
-      onSavePreset={savePreset}
-      onDeletePreset={deletePreset}
-      onResetPresets={resetPresets}
-    />
+    <PatternPanel {...{
+      videoPattern,
+      subPattern,
+      linked,
+      onVideoPattern: changeVideoPattern,
+      onSubPattern: changeSubPattern,
+      onToggleLinked: toggleLinked,
+      shift,
+      setShift,
+      presets,
+      onSavePreset: savePreset,
+      onDeletePreset: deletePreset,
+      onResetPresets: resetPresets,
+    }} />
   );
   const presetsEl = (
     <div className="regex-row">
@@ -279,18 +279,7 @@ export default function App() {
       </div>
     </div>
   );
-  const previewsEl = (
-    <div className="previews">
-      <div className="card preview-wrap">
-        <h3>Videos</h3>
-        <IndexPreview files={videos} pattern={videoPattern} folder={folder} />
-      </div>
-      <div className="card preview-wrap">
-        <h3>Subtitles</h3>
-        <IndexPreview files={subs} pattern={subPattern} folder={folder} />
-      </div>
-    </div>
-  );
+  const previewsEl = null;
   const pairsEl = (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       <div className="layout">
