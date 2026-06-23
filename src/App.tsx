@@ -5,7 +5,7 @@ import { Topbar } from './components/Topbar';
 import { PatternPanel } from './components/PatternPanel';
 import { PairList } from './components/PairList';
 import { StrayList } from './components/StrayList';
-import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, loadLastRename, saveLastRename, type RenameOp, type RenameReport, type Preset } from './api';
+import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, loadLastRename, saveLastRename, getLaunchFolder, type RenameOp, type RenameReport, type Preset } from './api';
 import { classify, extOf } from './lib/classify';
 import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, type MediaFile, type Row } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
@@ -44,6 +44,7 @@ export default function App() {
 
   const hydratedRef = useRef(false);
   const srTouchedRef = useRef(false);
+  const didInitRef = useRef(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -222,6 +223,25 @@ export default function App() {
     setSubs(subz);
     recompute(vids, subz, detected.videoPattern, detected.subPattern, shift);
   }, [shift, candidates]);
+
+  // Open the folder passed on the command line at launch, if any
+  // (`easyrename.exe F:\Shows\...`). Runs once: the ref guards against re-firing
+  // when `onFolder`'s identity changes after presets load. A load failure (e.g.
+  // permission denied) surfaces via apiError and leaves the empty dropzone.
+  useEffect(() => {
+    if (didInitRef.current) return;
+    // No-op outside the Tauri runtime (e.g. `vite dev` browser preview).
+    if (!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return;
+    didInitRef.current = true;
+    void (async () => {
+      try {
+        const dir = await getLaunchFolder();
+        if (dir) await onFolder(dir);
+      } catch (e) {
+        setApiError(String(e));
+      }
+    })();
+  }, [onFolder]);
 
   const onAutoDetect = () => {
     const best = detectBestPattern(videos, subs, candidates);

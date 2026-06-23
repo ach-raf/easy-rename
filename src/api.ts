@@ -19,6 +19,9 @@ export interface RenameReport {
 export const listFiles = (dir: string, recursive = true) =>
   invoke<FileEntry[]>('list_files', { dir, recursive });
 
+/** Folder passed on the command line at launch (`easyrename.exe <folder>`), or null. */
+export const getLaunchFolder = () => invoke<string | null>('get_launch_folder');
+
 export const renamePairs = (ops: RenameOp[], onConflict: 'skip' | 'overwrite') =>
   invoke<RenameReport>('rename_pairs', { ops, onConflict });
 
