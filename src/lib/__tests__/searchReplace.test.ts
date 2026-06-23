@@ -50,6 +50,15 @@ describe('isValidFileName', () => {
     expect(isValidFileName('S4 - 01.mkv')).toBe(true);
     expect(isValidFileName('Show Name [Group].ass')).toBe(true);
   });
+  it('rejects Windows device names + trailing dot/space', () => {
+    expect(isValidFileName('CON.txt')).toBe(false);
+    expect(isValidFileName('PRN')).toBe(false);
+    expect(isValidFileName('com1.mkv')).toBe(false);
+    expect(isValidFileName('name.')).toBe(false);
+    expect(isValidFileName('name ')).toBe(false);
+    // Not a device name — only a prefix; must still pass.
+    expect(isValidFileName('CONductor.mkv')).toBe(true);
+  });
 });
 
 describe('evaluateSearchReplace', () => {

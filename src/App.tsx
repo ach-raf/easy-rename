@@ -43,6 +43,7 @@ export default function App() {
   const [allFiles, setAllFiles] = useState<{ name: string; path: string }[]>([]);
 
   const hydratedRef = useRef(false);
+  const srTouchedRef = useRef(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -79,7 +80,7 @@ export default function App() {
     let cancelled = false;
     loadLastRename()
       .then((s) => {
-        if (cancelled || !s) return;
+        if (cancelled || !s || srTouchedRef.current) return;
         setMode(s.mode);
         setSrOpts({ search: s.search, replace: s.replace, useRegex: s.useRegex, caseSensitive: s.caseSensitive, applyTo: s.applyTo });
       })
@@ -182,6 +183,11 @@ export default function App() {
       setBusy(false);
     }
   };
+
+  const handleSrChange = useCallback((next: SearchReplaceOpts) => {
+    srTouchedRef.current = true;
+    setSrOpts(next);
+  }, []);
 
   const onFolder = useCallback(async (dir: string) => {
     setLastApplied(null);
@@ -287,11 +293,12 @@ export default function App() {
       <div className="app layout-sr">
         <Topbar onFolder={onFolder} folder={folder} mode={mode} onModeChange={setMode} />
         <aside className="left-panel">
-          <SearchReplacePanel opts={srOpts} onChange={setSrOpts} summary={srResult} />
+          <SearchReplacePanel opts={srOpts} onChange={handleSrChange} summary={srResult} />
           <RenamePanel
             ops={ops} folder={folder} onConflict={onConflict} setOnConflict={setOnConflict}
             onRun={onRun} onUndo={onUndo} busy={busy} canUndo={lastApplied !== null}
             report={report} apiError={apiError} totalVideos={allFiles.length}
+            conflicts={srResult.conflicts}
           />
         </aside>
         <main className="work">

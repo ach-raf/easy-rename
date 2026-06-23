@@ -57,6 +57,12 @@ export function compileMatcher(opts: SearchReplaceOpts): MatcherResult {
 // `S4 - 01.mkv` must pass validation.)
 const ILLEGAL_CHARS = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
+// Windows reserved device-name stems (case-insensitive). e.g. CON, PRN, AUX,
+// NUL, COM1-9, LPT1-9 — bare or with any extension (CON.txt, com1.mkv).
+const DEVICE_NAMES = new Set(['CON', 'PRN', 'AUX', 'NUL',
+  'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+  'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9']);
+
 /** A rename target must be a real, non-reserved, legal Windows filename. */
 export function isValidFileName(name: string): boolean {
   if (!name || name.trim() === '') return false;
@@ -65,6 +71,8 @@ export function isValidFileName(name: string): boolean {
   for (let i = 0; i < name.length; i++) {
     if (name.charCodeAt(i) < 0x20) return false; // block control chars (NUL, newline, etc.)
   }
+  if (/[.\s]$/.test(name)) return false;                              // trailing dot or space
+  if (DEVICE_NAMES.has(stemOf(name).toUpperCase())) return false;     // e.g. CON.txt, PRN, com1.mkv
   return true;
 }
 

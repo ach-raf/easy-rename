@@ -13,13 +13,15 @@ interface Props {
   report: RenameReport | null;
   apiError: string | null;
   totalVideos?: number;
+  conflicts?: number;
 }
 
 export function RenamePanel({
-  ops, folder, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError, totalVideos,
+  ops, folder, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError, totalVideos, conflicts,
 }: Props) {
   void folder; // retained for API symmetry; hero does not render a path table
   const total = totalVideos && totalVideos > 0 ? totalVideos : ops.length;
+  const blocked = (conflicts ?? 0) > 0;
   const ready = ops.length;
   const remaining = Math.max(0, total - ready);
   const pct = total > 0 ? Math.round((ready / total) * 100) : 0;
@@ -44,11 +46,13 @@ export function RenamePanel({
         type="button"
         className="depth-button-primary"
         onClick={onRun}
-        disabled={busy || ready === 0}
+        disabled={busy || ready === 0 || blocked}
       >
         {busy ? 'Working…' : `Rename ${ready} file${ready === 1 ? '' : 's'}`}
         {!busy ? <Icon name="arrow" size={16} /> : null}
       </button>
+
+      {blocked ? <p className="api-error">{conflicts} naming conflict{(conflicts ?? 0) === 1 ? '' : 's'} — adjust search/replace before renaming.</p> : null}
 
       <div className="segmented" role="radiogroup" aria-label="On conflict">
         <span className="seg-label">Conflict</span>
