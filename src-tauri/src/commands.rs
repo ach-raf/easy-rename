@@ -181,6 +181,27 @@ pub fn undo(ops: Vec<RenameOp>) -> Result<RenameReport, String> {
     rename_pairs(reversed, "overwrite".into())
 }
 
+/// Pick the first positional CLI arg iff it is an existing directory.
+/// `args[0]` is the executable path and is skipped. Pure (takes a slice) so it
+/// is unit-testable with `tempfile` without touching the real process args.
+fn launch_folder_from_args(args: &[String]) -> Option<String> {
+    let candidate = args.get(1)?;
+    if Path::new(candidate).is_dir() {
+        Some(candidate.clone())
+    } else {
+        None
+    }
+}
+
+/// The folder the app was launched with via the command line
+/// (`easyrename.exe <folder>`), or `None` when launched without a usable
+/// directory argument. Read once by the frontend on mount so the app can open
+/// straight into that folder.
+#[tauri::command]
+pub fn get_launch_folder() -> Option<String> {
+    launch_folder_from_args(&std::env::args().collect::<Vec<_>>())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,5 +278,36 @@ mod tests {
         let path = tmp.path().join("last_rename.json");
         std::fs::write(&path, b"{ not valid json").unwrap();
         assert!(load_last_rename_at(&path).is_none());
+    }
+
+    #[test]
+    fn launch_folder_returns_existing_dir_arg() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().to_string_lossy().into_owned();
+        let args = vec!["easyrename.exe".to_string(), dir.clone()];
+        // Returns the arg verbatim (no canonicalization).
+        assert_eq!(launch_folder_from_args(&args), Some(dir));
+    }
+
+    #[test]
+    fn launch_folder_none_for_missing_path() {
+        let args = vec!["easyrename.exe".to_string(), "Z:\\no\\such\\dir\\hopefully".into()];
+        assert_eq!(launch_folder_from_args(&args), None);
+    }
+
+    #[test]
+    fn launch_folder_none_for_file_arg() {
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("a.txt");
+        std::fs::write(&file, b"x").unwrap();
+        let file_s = file.to_string_lossy().into_owned();
+        let args = vec!["easyrename.exe".to_string(), file_s];
+        assert_eq!(launch_folder_from_args(&args), None);
+    }
+
+    #[test]
+    fn launch_folder_none_without_positional_arg() {
+        let args = vec!["easyrename.exe".to_string()];
+        assert_eq!(launch_folder_from_args(&args), None);
     }
 }

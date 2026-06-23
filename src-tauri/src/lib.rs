@@ -20,6 +20,7 @@ pub fn run() {
             commands::save_presets,
             commands::load_last_rename,
             commands::save_last_rename,
+            commands::get_launch_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
