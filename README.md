@@ -21,6 +21,16 @@ pnpm tauri build
 
 Produces the raw `tauri-app.exe` binary at `src-tauri/target/release/` and an NSIS installer `Easy Rename_0.1.0_x64-setup.exe` under `src-tauri/target/release/bundle/nsis/`.
 
+## Command-line use
+
+Pass a folder as the first argument to launch straight into it — useful for automation (e.g. a script that processes one season at a time):
+
+```bash
+"Easy Rename.exe" "F:\Shows\Major\Season 2"
+```
+
+The app opens with that folder already loaded, exactly as if you'd dropped it. A missing path or a file (rather than a folder) is ignored, so the app falls back to the empty dropzone. Each launch is an independent window.
+
 ## How matching works
 
 1. **Drop a folder** (or click to browse). Files are split into videos and subtitles by extension; everything else is ignored.
