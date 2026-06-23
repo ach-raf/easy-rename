@@ -38,6 +38,55 @@ fn presets_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("regex_presets.json"))
 }
 
+/// The last-used Search & Replace inputs + active mode. Persisted as JSON in
+/// the app config dir (camelCase keys to match the TS SearchReplaceOpts shape).
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LastRename {
+    pub mode: String,
+    pub search: String,
+    pub replace: String,
+    pub use_regex: bool,
+    pub case_sensitive: bool,
+    pub apply_to: String,
+}
+
+/// Where the last-run state lives: `<app_config_dir>/last_rename.json`.
+fn last_rename_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("last_rename.json"))
+}
+
+/// Pure load (path-based) so it is unit-testable without an AppHandle.
+/// Missing file (first run) and corrupt file both resolve to None.
+fn load_last_rename_at(path: &Path) -> Option<LastRename> {
+    match std::fs::read_to_string(path) {
+        Ok(s) => serde_json::from_str(&s).ok(),
+        Err(_) => None,
+    }
+}
+
+/// Pure save (path-based): write a temp sibling then move, so a crash mid-write
+/// cannot leave a half-written file behind. Mirrors save_presets.
+fn save_last_rename_at(path: &Path, state: &LastRename) -> Result<(), String> {
+    let s = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, s).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn load_last_rename(app: tauri::AppHandle) -> Result<Option<LastRename>, String> {
+    Ok(load_last_rename_at(&last_rename_file(&app)?))
+}
+
+#[tauri::command]
+pub fn save_last_rename(app: tauri::AppHandle, state: LastRename) -> Result<(), String> {
+    save_last_rename_at(&last_rename_file(&app)?, &state)
+}
+
 #[tauri::command]
 pub fn load_presets(app: tauri::AppHandle) -> Result<Vec<Preset>, String> {
     let path = presets_file(&app)?;
@@ -178,5 +227,35 @@ mod tests {
         let report = undo(report.applied).unwrap();
         assert_eq!(report.applied.len(), 1);
         assert!(src.exists(), "undo should restore original path");
+    }
+
+    #[test]
+    fn last_rename_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("last_rename.json");
+        let state = LastRename {
+            mode: "searchReplace".into(), search: "S3".into(), replace: "S4".into(),
+            use_regex: false, case_sensitive: true, apply_to: "both".into(),
+        };
+        save_last_rename_at(&path, &state).unwrap();
+        let loaded = load_last_rename_at(&path).expect("should load after save");
+        assert_eq!(loaded.search, "S3");
+        assert!(loaded.case_sensitive);
+        assert_eq!(loaded.apply_to, "both");
+    }
+
+    #[test]
+    fn last_rename_missing_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("nope.json");
+        assert!(load_last_rename_at(&path).is_none());
+    }
+
+    #[test]
+    fn last_rename_corrupt_returns_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("last_rename.json");
+        std::fs::write(&path, b"{ not valid json").unwrap();
+        assert!(load_last_rename_at(&path).is_none());
     }
 }
