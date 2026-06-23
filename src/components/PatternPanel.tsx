@@ -94,15 +94,22 @@ export function PatternPanel(props: Props) {
               </div>
             </div>
 
-            <div className={'field' + (linked ? ' disabled' : '')}>
-              <label>Subtitle pattern{linked ? ' · linked' : ''}</label>
-              <input className="text-input" value={linked ? videoPattern : subPattern} disabled={linked} spellCheck={false}
-                onChange={(e) => onSubPattern(e.target.value)} placeholder={'e.g. E\\d+'} />
+            <div className="field">
+              <div className={'sub-lock' + (linked ? ' locked' : '')}>
+                <label>Subtitle pattern{linked ? ' · linked' : ''}</label>
+                <input className="text-input" value={linked ? videoPattern : subPattern} disabled={linked} spellCheck={false}
+                  onChange={(e) => onSubPattern(e.target.value)} placeholder={'e.g. E\\d+'} />
+              </div>
               <label className="link-toggle">
                 <input type="checkbox" checked={linked} onChange={onToggleLinked} />
                 <span className="switch" />
                 Same pattern for subtitles
               </label>
+              {!linked ? (
+                <div className="presets">
+                  <PresetRow presets={presets} active={subPattern} onApply={onSubPattern} onDelete={onDeletePreset} />
+                </div>
+              ) : null}
             </div>
           </div>
 
