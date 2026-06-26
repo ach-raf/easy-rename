@@ -5,15 +5,36 @@ import { Topbar } from './components/Topbar';
 import { PatternPanel } from './components/PatternPanel';
 import { PairList } from './components/PairList';
 import { StrayList } from './components/StrayList';
-import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, loadLastRename, saveLastRename, getLaunchFolder, type RenameOp, type RenameReport, type Preset } from './api';
+import { listFiles, renamePairs, undoRenames, loadPresets, savePresets, loadLastRename, saveLastRename, getLaunchFolder, type FileEntry, type RenameOp, type RenameReport, type Preset } from './api';
 import { classify, extOf } from './lib/classify';
-import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, type MediaFile, type Row } from './lib/match';
+import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, mergeLocked, fillEmpty, unassignAll, type MediaFile, type Row } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
 import { evaluateSearchReplace, type SearchReplaceOpts } from './lib/searchReplace';
 import { RenamePanel } from './components/RenamePanel';
 import { SearchReplacePanel } from './components/SearchReplacePanel';
 import { SearchReplaceList } from './components/SearchReplaceList';
 import './app.css';
+
+// Read + classify + sort a flat file listing into the three buckets the UI
+// consumes. Shared by the initial folder open (which then auto-detects a
+// pattern) and the post-rename refresh (which keeps the current pattern).
+function classifyEntries(entries: FileEntry[]) {
+  const vids: MediaFile[] = [];
+  const subz: MediaFile[] = [];
+  const all: { name: string; path: string }[] = [];
+  for (const e of entries) {
+    if (e.is_dir) continue;
+    all.push({ name: e.name, path: e.path });
+    const kind = classify(e.name);
+    if (kind === 'other') continue;
+    const mf: MediaFile = { id: e.path, name: e.name, path: e.path, ext: extOf(e.name), kind };
+    if (kind === 'video') vids.push(mf); else subz.push(mf);
+  }
+  vids.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  subz.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  all.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  return { vids, subz, all };
+}
 
 export default function App() {
   const [folder, setFolder] = useState<string | null>(null);
@@ -141,12 +162,40 @@ export default function App() {
     setRows((prev) => applyReassign(prev, videoId, sub));
   }, []);
 
-  // Rebuild rows from files + per-side patterns + shift. Manual edits are
-  // discarded on re-match. Takes the arrays as args so it can run from onFolder
-  // with the freshly-built locals (state updates are async).
-  const recompute = (vids: MediaFile[], subz: MediaFile[], vPat: string, sPat: string, sh: number) => {
-    const matched = new Map(buildPairs(vids, subz, vPat, sPat, sh).pairs.map((p) => [p.video.id, p.sub]));
-    setRows(vids.map((v) => ({ video: v, sub: matched.get(v.id) ?? null })));
+  const onAutoAssignAll = useCallback(() => {
+    const fresh = buildPairs(videos, subs, videoPattern, subPattern, shift).pairs;
+    setRows((prev) => fillEmpty(prev, fresh));
+  }, [videos, subs, videoPattern, subPattern, shift]);
+
+  const onUnassignAll = useCallback(() => {
+    setRows((prev) => unassignAll(prev));
+  }, []);
+
+  const onToggleLock = useCallback((videoId: string) => {
+    setRows((prev) => prev.map((r) => (r.video.id === videoId ? { ...r, locked: !r.locked } : r)));
+  }, []);
+
+  // Rebuild rows from files + per-side patterns + shift. `prevRows` carries
+  // manual overrides to preserve: a fresh folder open passes [] (no carry-over);
+  // every other caller (pattern edit, re-match, auto-detect, post-rename reload)
+  // passes the current rows so 🔒 locks survive. mergeLocked overlays the
+  // overrides on top of the fresh auto-match.
+  const recompute = (vids: MediaFile[], subz: MediaFile[], vPat: string, sPat: string, sh: number, prevRows: Row[]) => {
+    const freshByVideo = new Map(buildPairs(vids, subz, vPat, sPat, sh).pairs.map((p) => [p.video.id, p.sub]));
+    setRows(mergeLocked(prevRows, vids, subz, freshByVideo));
+  };
+
+  // Re-read the folder from disk and recompute matches with the CURRENT pattern
+  // settings. Called after a rename/undo so every preview (PairList, S&R preview,
+  // rename counts) reflects the live filesystem instead of the pre-action
+  // snapshot. Pattern/shift/linked are preserved — Auto-Detect is a separate
+  // action if the user wants a fresh guess.
+  const reloadFiles = async (dir: string) => {
+    const { vids, subz, all } = classifyEntries(await listFiles(dir, true));
+    setAllFiles(all);
+    setVideos(vids);
+    setSubs(subz);
+    recompute(vids, subz, videoPattern, subPattern, shift, rows);
   };
 
   const onDragEnd = (e: DragEndEvent) => {
@@ -164,6 +213,7 @@ export default function App() {
       setReport(r);
       setLastApplied(r.applied);
       setApiError(null);
+      if (folder) await reloadFiles(folder);
     } catch (e) {
       setApiError(String(e));
     } finally {
@@ -178,6 +228,7 @@ export default function App() {
       setReport(r);
       setLastApplied(null);
       setApiError(null);
+      if (folder) await reloadFiles(folder);
     } catch (e) {
       setApiError(String(e));
     } finally {
@@ -194,21 +245,7 @@ export default function App() {
     setLastApplied(null);
     setReport(null);
     setApiError(null);
-    const entries = await listFiles(dir, true);
-    const vids: MediaFile[] = [];
-    const subz: MediaFile[] = [];
-    const all: { name: string; path: string }[] = [];
-    for (const e of entries) {
-      if (e.is_dir) continue;
-      all.push({ name: e.name, path: e.path });
-      const kind = classify(e.name);
-      if (kind === 'other') continue;
-      const mf: MediaFile = { id: e.path, name: e.name, path: e.path, ext: extOf(e.name), kind };
-      if (kind === 'video') vids.push(mf); else subz.push(mf);
-    }
-    vids.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-    subz.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-    all.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const { vids, subz, all } = classifyEntries(await listFiles(dir, true));
     setAllFiles(all);
     // Joint auto-detect: the best pattern per side can live in a different index
     // space and combine to zero pairs, so we pick the (video, sub) pair that
@@ -221,7 +258,7 @@ export default function App() {
     setFolder(dir);
     setVideos(vids);
     setSubs(subz);
-    recompute(vids, subz, detected.videoPattern, detected.subPattern, shift);
+    recompute(vids, subz, detected.videoPattern, detected.subPattern, shift, []);
   }, [shift, candidates]);
 
   // Open the folder passed on the command line at launch, if any
@@ -249,7 +286,7 @@ export default function App() {
     setVideoPattern(best.videoPattern);
     setSubPattern(best.subPattern);
     setLinked(same);
-    recompute(videos, subs, best.videoPattern, best.subPattern, shift);
+    recompute(videos, subs, best.videoPattern, best.subPattern, shift, rows);
   };
 
   // While linked, editing the video pattern copies it to the subtitle side.
@@ -262,12 +299,12 @@ export default function App() {
     setVideoPattern(p);
     const nextSubPat = linked ? p : subPattern;
     if (linked) setSubPattern(p);
-    recompute(videos, subs, p, nextSubPat, shift);
+    recompute(videos, subs, p, nextSubPat, shift, rows);
   };
   const changeSubPattern = (p: string) => {
     if (linked) return;
     setSubPattern(p);
-    recompute(videos, subs, videoPattern, p, shift);
+    recompute(videos, subs, videoPattern, p, shift, rows);
   };
   const toggleLinked = () => {
     if (linked) {
@@ -304,7 +341,7 @@ export default function App() {
       onResetPresets={resetPresets}
       previewFiles={videos.slice(0, 5)}
       onAutoDetect={onAutoDetect}
-      onReMatch={() => recompute(videos, subs, videoPattern, subPattern, shift)}
+      onReMatch={() => recompute(videos, subs, videoPattern, subPattern, shift, rows)}
     />
   );
 
@@ -334,7 +371,9 @@ export default function App() {
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
         <main className="work">
           <div className="pairs depth-card">
-            <PairList rows={rows} allSubs={subs} pattern={videoPattern} folder={folder} onReassign={reassign} />
+            <PairList rows={rows} allSubs={subs} pattern={videoPattern} folder={folder}
+                    onReassign={reassign} onAutoAssignAll={onAutoAssignAll}
+                    onUnassignAll={onUnassignAll} onToggleLock={onToggleLock} />
           </div>
         </main>
         <aside className="rail">
