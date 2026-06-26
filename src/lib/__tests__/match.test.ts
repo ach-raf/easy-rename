@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractIndex, buildPairs, detectBestPattern, applyReassign, candidatePatterns, MediaFile, Row } from '../match';
+import { extractIndex, buildPairs, detectBestPattern, applyReassign, candidatePatterns, mergeLocked, fillEmpty, unassignAll, MediaFile, Row } from '../match';
 
 const v = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'video' });
 const s = (name: string): MediaFile => ({ id: name, name, path: 'C:/d/' + name, ext: name.split('.').pop()!.toLowerCase(), kind: 'subtitle' });
@@ -113,7 +113,8 @@ describe('candidatePatterns', () => {
 });
 
 describe('applyReassign', () => {
-  const mk = (rows: { video: MediaFile; sub: MediaFile | null }[]): Row[] => rows;
+  const mk = (rows: { video: MediaFile; sub: MediaFile | null; locked?: boolean }[]): Row[] =>
+    rows.map((r) => ({ ...r, locked: r.locked ?? false }));
 
   it('assigns a subtitle to an empty video', () => {
     const rows = mk([{ video: v('ep1.mkv'), sub: null }]);
@@ -146,5 +147,95 @@ describe('applyReassign', () => {
     const rows = mk([{ video: v('ep1.mkv'), sub: s('a.srt') }]);
     const out = applyReassign(rows, 'ep1.mkv', null);
     expect(out[0].sub).toBeNull();
+  });
+
+  it('marks a manual assignment as locked', () => {
+    const out = applyReassign(mk([{ video: v('ep1.mkv'), sub: null }]), 'ep1.mkv', s('a.srt'));
+    expect(out[0].locked).toBe(true);
+  });
+
+  it('clears the lock on an explicit unlink', () => {
+    const out = applyReassign(mk([{ video: v('ep1.mkv'), sub: s('a.srt'), locked: true }]), 'ep1.mkv', null);
+    expect(out[0].sub).toBeNull();
+    expect(out[0].locked).toBe(false);
+  });
+
+  it('locks the target of a swap but leaves the displaced row lock untouched', () => {
+    const rows = mk([
+      { video: v('ep1.mkv'), sub: s('a.srt'), locked: true },
+      { video: v('ep2.mkv'), sub: s('b.srt'), locked: false },
+    ]);
+    const out = applyReassign(rows, 'ep2.mkv', s('a.srt'));
+    expect(out[0].sub?.name).toBe('b.srt'); // displaced b → ep1
+    expect(out[0].locked).toBe(true);       // ep1 lock untouched
+    expect(out[1].sub?.name).toBe('a.srt'); // a → ep2
+    expect(out[1].locked).toBe(true);       // manual pick locks ep2
+  });
+});
+
+describe('mergeLocked', () => {
+  const videos = [v('ep1.mkv'), v('ep2.mkv'), v('ep3.mkv')];
+  const subs = [s('ep01.srt'), s('ep02.srt'), s('ep03.srt')];
+
+  it('restores a locked override on top of the fresh auto-match', () => {
+    const prev: Row[] = [
+      { video: videos[0], sub: s('ep03.srt'), locked: true },
+      { video: videos[1], sub: s('ep02.srt'), locked: false },
+      { video: videos[2], sub: null, locked: false },
+    ];
+    const fresh = new Map([[videos[0].id, s('ep01.srt')], [videos[1].id, s('ep02.srt')]]);
+    const out = mergeLocked(prev, videos, subs, fresh);
+    expect(out[0].sub?.name).toBe('ep03.srt'); // override kept
+    expect(out[0].locked).toBe(true);
+    expect(out[1].sub?.name).toBe('ep02.srt'); // fresh kept
+    expect(out[1].locked).toBe(false);
+    expect(out[2].sub).toBeNull();
+  });
+
+  it('drops a lock whose subtitle no longer exists (falls back to fresh)', () => {
+    const prev: Row[] = [{ video: videos[0], sub: s('gone.srt'), locked: true }];
+    const fresh = new Map([[videos[0].id, s('ep01.srt')]]);
+    const out = mergeLocked(prev, videos, subs, fresh);
+    expect(out[0].sub?.name).toBe('ep01.srt');
+    expect(out[0].locked).toBe(false);
+  });
+});
+
+describe('fillEmpty', () => {
+  it('fills empty rows from fresh pairs and leaves assigned rows alone', () => {
+    const freshPairs = [
+      { video: v('ep1.mkv'), sub: s('ep01.srt') },
+      { video: v('ep2.mkv'), sub: s('ep02.srt') },
+    ];
+    const rows: Row[] = [
+      { video: v('ep1.mkv'), sub: null, locked: false },
+      { video: v('ep2.mkv'), sub: s('manual.srt'), locked: true },
+    ];
+    const out = fillEmpty(rows, freshPairs);
+    expect(out[0].sub?.name).toBe('ep01.srt');
+    expect(out[0].locked).toBe(false); // auto guesses are unlocked
+    expect(out[1].sub?.name).toBe('manual.srt'); // untouched
+    expect(out[1].locked).toBe(true);
+  });
+
+  it('does not assign a sub already used by another row', () => {
+    const freshPairs = [{ video: v('ep2.mkv'), sub: s('ep02.srt') }];
+    const rows: Row[] = [
+      { video: v('ep1.mkv'), sub: s('ep02.srt'), locked: false }, // already has it
+      { video: v('ep2.mkv'), sub: null, locked: false },
+    ];
+    const out = fillEmpty(rows, freshPairs);
+    expect(out[1].sub).toBeNull(); // ep02.srt already used → not reused
+  });
+});
+
+describe('unassignAll', () => {
+  it('clears every sub and lock', () => {
+    const rows: Row[] = [
+      { video: v('ep1.mkv'), sub: s('a.srt'), locked: true },
+      { video: v('ep2.mkv'), sub: null, locked: false },
+    ];
+    const out = unassignAll(rows);
+    expect(out.every((r) => r.sub === null && r.locked === false)).toBe(true);
   });
 });

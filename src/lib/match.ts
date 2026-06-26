@@ -13,10 +13,12 @@ export interface Pair {
   sub: MediaFile;
 }
 
-/** One row per video in the UI. `sub` is null until a subtitle is assigned. */
+/** One row per video in the UI. `sub` is null until a subtitle is assigned.
+ *  `locked` marks a manual override that survives re-match / pattern edits. */
 export interface Row {
   video: MediaFile;
   sub: MediaFile | null;
+  locked: boolean;
 }
 
 export interface MatchResult {
@@ -162,10 +164,54 @@ export function applyReassign(rows: Row[], videoId: string, sub: MediaFile | nul
   const target = next.find((r) => r.video.id === videoId)!;
   const displaced = target.sub;
   if (sub) {
-    for (const r of next) if (r.sub?.id === sub.id) r.sub = displaced;
+    for (const r of next) if (r.sub?.id === sub.id) r.sub = displaced; // swap; locks untouched
     target.sub = sub;
+    target.locked = true; // a manual pick (or swap target) is an override
   } else {
     target.sub = null;
+    target.locked = false; // explicit unlink drops the override
   }
   return next;
+}
+
+/** Rebuild rows from a fresh auto-match, then restore locked overrides from
+ *  `prevRows`. A lock whose subtitle is no longer in `subs` (e.g. the file
+ *  vanished after a rename) falls back to the fresh result and unlocks. */
+export function mergeLocked(
+  prevRows: Row[],
+  videos: MediaFile[],
+  subs: MediaFile[],
+  freshByVideo: Map<string, MediaFile>,
+): Row[] {
+  const prevByVideo = new Map(prevRows.map((r) => [r.video.id, r]));
+  const subExists = new Set(subs.map((s) => s.id));
+  return videos.map((video) => {
+    const prev = prevByVideo.get(video.id);
+    const fresh = freshByVideo.get(video.id) ?? null;
+    if (prev?.locked && prev.sub && subExists.has(prev.sub.id)) {
+      return { video, sub: prev.sub, locked: true };
+    }
+    return { video, sub: fresh, locked: false };
+  });
+}
+
+/** Auto-assign-all: fill each empty row with its fresh-pair sub, skipping subs
+ *  already used by any row. Results are unlocked (auto guesses, not overrides). */
+export function fillEmpty(rows: Row[], freshPairs: Pair[]): Row[] {
+  const used = new Set(rows.filter((r) => r.sub).map((r) => r.sub!.id));
+  const freshByVideo = new Map(freshPairs.map((p) => [p.video.id, p.sub]));
+  return rows.map((r) => {
+    if (r.sub) return r; // assigned (incl. locked) — leave alone
+    const cand = freshByVideo.get(r.video.id);
+    if (cand && !used.has(cand.id)) {
+      used.add(cand.id);
+      return { ...r, sub: cand, locked: false };
+    }
+    return r;
+  });
+}
+
+/** Unassign-all: blank slate — every sub cleared, every lock cleared. */
+export function unassignAll(rows: Row[]): Row[] {
+  return rows.map((r) => ({ ...r, sub: null, locked: false }));
 }
