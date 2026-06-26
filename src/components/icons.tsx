@@ -19,6 +19,11 @@ const PATHS: Record<string, ReactNode> = {
   alert: <><path d="M12 4l9 16H3z" /><path d="M12 10v4M12 17.5v.5" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></>,
   file: <><path d="M15 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z" /><path d="M15 3v4h4" /></>,
+  lock: <><path d="M5 11h14v9H5z" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></>,
+  unlock: <><path d="M5 11h14v9H5z" /><path d="M8 11V8a4 4 0 0 1 7.5-2" /></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7" />,
+  more: <><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" /></>,
+  eraser: <><path d="M16 3l5 5-9 9H7l-4-4a2 2 0 0 1 0-3l9-9a2 2 0 0 1 3 0z" /><path d="M9 21h11" /></>,
 };
 
 export type IconName = keyof typeof PATHS;
