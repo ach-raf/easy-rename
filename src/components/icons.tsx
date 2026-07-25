@@ -24,6 +24,9 @@ const PATHS: Record<string, ReactNode> = {
   check: <path d="M5 12.5l4.5 4.5L19 7" />,
   more: <><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" /></>,
   eraser: <><path d="M16 3l5 5-9 9H7l-4-4a2 2 0 0 1 0-3l9-9a2 2 0 0 1 3 0z" /><path d="M9 21h11" /></>,
+  hash: <><path d="M4 9h16M4 15h16" /><path d="M10 3 8 21M16 3l-2 18" /></>,
+  layers: <><path d="M12 3 3 8l9 5 9-5z" /><path d="M3 13l9 5 9-5" /></>,
+  trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></>,
 };
 
 export type IconName = keyof typeof PATHS;
