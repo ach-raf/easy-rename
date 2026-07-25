@@ -177,6 +177,8 @@ export function RenumberPanel({ opts, files, onChange, summary }: PanelProps) {
     set({ seasons: opts.seasons.filter((_, idx) => idx !== i) });
 
   const withAbs = files.filter((f) => extractIndex(f.name, opts.pattern) !== null).length;
+  const pw = Math.max(1, opts.pad);
+  const padN = (n: number) => String(n).padStart(pw, '0');
 
   return (
     <div className="depth-card rail-section rn-controls">
@@ -218,7 +220,7 @@ export function RenumberPanel({ opts, files, onChange, summary }: PanelProps) {
           <input className="text-input rn-num-input" type="number" min={1} max={6} value={opts.pad}
             aria-label="Zero-pad width"
             onChange={(e) => set({ pad: Math.max(1, parseInt(e.target.value || '1', 10)) })} />
-          <p className="hint">Season &amp; episode padded (e.g. <span className="mono">S01E01</span>).</p>
+          <p className="hint">Zero-pads season &amp; episode to {pw} digit{pw === 1 ? '' : 's'} → <span className="mono">S{padN(1)}E{padN(1)}</span>.</p>
         </div>
       </div>
 
