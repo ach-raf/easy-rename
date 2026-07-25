@@ -2,7 +2,7 @@ import { Dropzone } from './Dropzone';
 import { Icon } from './icons';
 import { ThemeControls } from './ThemeControls';
 
-export type Mode = 'match' | 'searchReplace';
+export type Mode = 'match' | 'searchReplace' | 'renumber';
 
 interface Props {
   onFolder: (dir: string) => void;
@@ -32,6 +32,11 @@ export function Topbar({ onFolder, folder, mode, onModeChange }: Props) {
             className={'seg' + (mode === 'searchReplace' ? ' active' : '')}
             onClick={() => onModeChange('searchReplace')}
           >Search &amp; Replace</button>
+          <button
+            type="button" role="radio" aria-checked={mode === 'renumber'}
+            className={'seg' + (mode === 'renumber' ? ' active' : '')}
+            onClick={() => onModeChange('renumber')}
+          >Renumber</button>
         </div>
       ) : null}
       <ThemeControls />

@@ -10,9 +10,12 @@ import { classify, extOf } from './lib/classify';
 import { buildPairs, detectBestPattern, applyReassign, candidatePatterns, REGEX_PRESETS, mergeLocked, fillEmpty, unassignAll, type MediaFile, type Row } from './lib/match';
 import { buildRenamePlan } from './lib/renamePlan';
 import { evaluateSearchReplace, type SearchReplaceOpts } from './lib/searchReplace';
+import { evaluateRenumber, seedSeasons, type RenumberOpts } from './lib/renumber';
 import { RenamePanel } from './components/RenamePanel';
 import { SearchReplacePanel } from './components/SearchReplacePanel';
 import { SearchReplaceList } from './components/SearchReplaceList';
+import { RenumberPanel } from './components/RenumberPanel';
+import { RenumberList } from './components/RenumberList';
 import './app.css';
 
 // Read + classify + sort a flat file listing into the three buckets the UI
@@ -57,10 +60,11 @@ export default function App() {
   // empty, then reconciled with whatever is on disk (regex_presets.json in the
   // app config dir) once load resolves.
   const [presets, setPresets] = useState<Preset[]>(REGEX_PRESETS);
-  const [mode, setMode] = useState<'match' | 'searchReplace'>('match');
+  const [mode, setMode] = useState<'match' | 'searchReplace' | 'renumber'>('match');
   const [srOpts, setSrOpts] = useState<SearchReplaceOpts>({
     search: '', replace: '', useRegex: false, caseSensitive: false, applyTo: 'both',
   });
+  const [renumberOpts, setRenumberOpts] = useState<RenumberOpts>({ pattern: '(\\d+)', seasons: [], pad: 2 });
   const [allFiles, setAllFiles] = useState<{ name: string; path: string }[]>([]);
 
   const hydratedRef = useRef(false);
@@ -74,7 +78,8 @@ export default function App() {
     [rows],
   );
   const srResult = useMemo(() => evaluateSearchReplace(allFiles, srOpts), [allFiles, srOpts]);
-  const ops = mode === 'searchReplace' ? srResult.ops : matchOps;
+  const renumberResult = useMemo(() => evaluateRenumber(allFiles, renumberOpts), [allFiles, renumberOpts]);
+  const ops = mode === 'renumber' ? renumberResult.ops : mode === 'searchReplace' ? srResult.ops : matchOps;
 
   const unmatchedSubs = useMemo(() => {
     const used = new Set(rows.filter((r) => r.sub).map((r) => r.sub!.id));
@@ -114,6 +119,7 @@ export default function App() {
   // Debounced-save the SR inputs + mode whenever they change (after hydration).
   useEffect(() => {
     if (!hydratedRef.current) return;
+    if (mode === 'renumber') return;          // renumber setup is not persisted (MVP)
     const id = setTimeout(() => {
       saveLastRename({ mode, ...srOpts }).catch((e) => setApiError(String(e)));
     }, 400);
@@ -247,6 +253,7 @@ export default function App() {
     setApiError(null);
     const { vids, subz, all } = classifyEntries(await listFiles(dir, true));
     setAllFiles(all);
+    setRenumberOpts((prev) => ({ ...prev, seasons: seedSeasons(all, prev.pattern) }));
     // Joint auto-detect: the best pattern per side can live in a different index
     // space and combine to zero pairs, so we pick the (video, sub) pair that
     // yields the most pairs rather than optimizing each side on its own.
@@ -344,6 +351,26 @@ export default function App() {
       onReMatch={() => recompute(videos, subs, videoPattern, subPattern, shift, rows)}
     />
   );
+
+  if (mode === 'renumber') {
+    return (
+      <div className="app layout-sr">
+        <Topbar onFolder={onFolder} folder={folder} mode={mode} onModeChange={setMode} />
+        <aside className="left-panel">
+          <RenumberPanel opts={renumberOpts} files={allFiles} onChange={setRenumberOpts} summary={renumberResult} />
+          <RenamePanel
+            ops={ops} folder={folder} onConflict={onConflict} setOnConflict={setOnConflict}
+            onRun={onRun} onUndo={onUndo} busy={busy} canUndo={lastApplied !== null}
+            report={report} apiError={apiError} totalVideos={allFiles.length}
+            conflicts={renumberResult.conflicts}
+          />
+        </aside>
+        <main className="work">
+          <RenumberList rows={renumberResult.rows} />
+        </main>
+      </div>
+    );
+  }
 
   if (mode === 'searchReplace') {
     return (

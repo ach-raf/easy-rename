@@ -33,7 +33,7 @@ export const loadPresets = () => invoke<Preset[]>('load_presets');
 export const savePresets = (presets: Preset[]) =>
   invoke<void>('save_presets', { presets });
 
-export type RenameMode = 'match' | 'searchReplace';
+export type RenameMode = 'match' | 'searchReplace' | 'renumber';
 
 /** Flat camelCase mirror of the Rust `LastRename` struct. */
 export interface LastRenameState {
