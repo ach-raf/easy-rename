@@ -44,7 +44,7 @@
 
 ## Highlights
 
-- **Two rename modes** — match subtitles to videos by episode number, or Search & Replace anything.
+- **Three rename modes** — match subtitles to videos by episode number, Search & Replace anything, or Renumber absolute-numbered files to `SxxEyy` across seasons.
 - **Frictionless pairing** — a searchable subtitle picker that hides already-assigned files, per-row ✕ unlink, 🔒 lockable manual overrides, and a one-click **Auto-assign all** / **Unassign all** menu.
 - **Safe by default** — live `old → new` preview, conflict detection (Skip / Overwrite), Windows device-name & illegal-character validation, and one-click **Undo last** batch.
 - **Pure, tested logic** — pattern extraction, matching, and rename planning live in framework-free TypeScript covered by Vitest.
@@ -57,7 +57,7 @@
 
 | Feature                                       | Match subtitles | Search &amp; Replace |
 | :-------------------------------------------- | :-------------: | :------------------: |
-| Regex pattern extraction                      |       ✅        |         ✅           |
+| Regex pattern extraction                      |       ✅        |          ✅          |
 | Independent per-side patterns                 |       ✅        |          —           |
 | Auto-detect best pattern from filenames       |       ✅        |          —           |
 | Episode index shift (fix off-by-one)          |       ✅        |          —           |
@@ -65,19 +65,21 @@
 | Searchable subtitle picker (hides used)       |       ✅        |          —           |
 | Lock manual pairings across re-match          |       ✅        |          —           |
 | Bulk auto-assign / unassign all               |       ✅        |          —           |
-| Literal &amp; regex replace                   |        —        |         ✅           |
-| Case-sensitive toggle                         |        —        |         ✅           |
-| Target filename / extension / both            |        —        |         ✅           |
-| Conflict detection (Skip / Overwrite)         |       ✅        |         ✅           |
-| Windows filename &amp; device-name validation |       ✅        |         ✅           |
-| Live preview (old → new)                      |       ✅        |         ✅           |
-| Undo last batch                               |       ✅        |         ✅           |
-| Remember last-used inputs &amp; mode          |       ✅        |         ✅           |
-| Drag-and-drop folder *or* CLI argument        |       ✅        |         ✅           |
+| Literal &amp; regex replace                   |        —        |          ✅          |
+| Case-sensitive toggle                         |        —        |          ✅          |
+| Target filename / extension / both            |        —        |          ✅          |
+| Conflict detection (Skip / Overwrite)         |       ✅        |          ✅          |
+| Windows filename &amp; device-name validation |       ✅        |          ✅          |
+| Live preview (old → new)                      |       ✅        |          ✅          |
+| Undo last batch                               |       ✅        |          ✅          |
+| Remember last-used inputs &amp; mode          |       ✅        |          ✅          |
+| Drag-and-drop folder _or_ CLI argument        |       ✅        |          ✅          |
 
 **Match subtitles to videos** — Drop a folder; videos and subtitles are split by extension. Pick a regex with one capturing group to extract each file's episode index, auto-match them, drag to fix any mismatches, and rename every subtitle to match its video — keeping the subtitle's own extension.
 
 **Search & Replace** — Run a literal or regex search/replace across every file in a folder. Toggle case sensitivity, choose whether to touch the name, the extension, or both, and review the full preview before committing.
+
+**Renumber (absolute → SxxEyy)** — For libraries that use absolute episode numbering. Pick the regex that extracts the absolute number, then for each season pick the first and last file and type the episode the first file should become. The app derives the offset and renames every file in range to `SxxEyy`, keeping the rest of each filename. Define multiple seasons to renumber a whole series in one pass; files outside every season's range are left untouched.
 
 ## Install
 
@@ -130,13 +132,13 @@ pnpm test:watch              # …in watch mode
 cd src-tauri && cargo test   # Rust command tests
 ```
 
-| Script             | What it does                                   |
-| :----------------- | :--------------------------------------------- |
-| `pnpm dev`         | Vite dev server only (frontend, no Rust)       |
-| `pnpm build`       | `tsc` type-check + Vite production build       |
-| `pnpm preview`     | Preview the production build locally           |
-| `pnpm tauri dev`   | Full desktop app, hot reload                   |
-| `pnpm tauri build` | Build the Windows installer                    |
+| Script             | What it does                             |
+| :----------------- | :--------------------------------------- |
+| `pnpm dev`         | Vite dev server only (frontend, no Rust) |
+| `pnpm build`       | `tsc` type-check + Vite production build |
+| `pnpm preview`     | Preview the production build locally     |
+| `pnpm tauri dev`   | Full desktop app, hot reload             |
+| `pnpm tauri build` | Build the Windows installer              |
 
 ### Build a Windows installer
 
@@ -162,6 +164,7 @@ easy_rename/
 │  │  ├─ classify.ts     #   split files into videos / subtitles
 │  │  ├─ match.ts        #   pattern extraction + pairing
 │  │  ├─ renamePlan.ts   #   build the rename operation batch
+│  │  ├─ renumber.ts     #   absolute → SxxEyy engine (season blocks)
 │  │  ├─ searchReplace.ts#   the search/replace engine
 │  │  ├─ path.ts         #   path helpers
 │  │  ├─ theme.ts        #   theme management
@@ -184,16 +187,6 @@ cd easy-rename
 pnpm install
 pnpm tauri dev
 ```
-
-## 🌟 Star history
-
-<a href="https://star-history.com/#ach-raf/easy-rename&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ach-raf/easy-rename&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ach-raf/easy-rename&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ach-raf/easy-rename&type=Date" />
-  </picture>
-</a>
 
 ## 🧑‍💻 Contributors
 
