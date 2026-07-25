@@ -79,7 +79,7 @@
 
 **Search & Replace** — Run a literal or regex search/replace across every file in a folder. Toggle case sensitivity, choose whether to touch the name, the extension, or both, and review the full preview before committing.
 
-**Renumber (absolute → SxxEyy)** — For libraries that use absolute episode numbering. Pick the regex that extracts the absolute number, then for each season pick the first and last file and type the episode the first file should become. The app derives the offset and renames every file in range to `SxxEyy`, keeping the rest of each filename. Define multiple seasons to renumber a whole series in one pass; files outside every season's range are left untouched.
+**Renumber (absolute → SxxEyy)** — For libraries that use absolute episode numbering. Pick the regex that extracts the absolute number, then for each season pick the first and last file and type the episode the first file should become. The app derives the offset and renames every file in range to `SxxEyy`, keeping the rest of each filename. Define multiple seasons to renumber a whole series in one pass; files outside every season's range are left untouched. The Renumber setup is session-only in this release — it isn't remembered across launches yet.
 
 ## Install
 
