@@ -64,4 +64,19 @@ describe('RenumberPanel', () => {
     const last = onChange.mock.calls[onChange.mock.calls.length - 1][0] as RenumberOpts;
     expect(last.seasons[0].fromAbs).toBe(91);
   });
+
+  it('scrolling inside the file-picker list does NOT close the popover', () => {
+    const onChange = vi.fn();
+    const empty: RenumberOpts = { ...opts, seasons: [{ season: 1, fromAbs: 0, toAbs: 0, startEp: 1 }] };
+    render(<RenumberPanel opts={empty} files={files} onChange={onChange} summary={summary} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pick first file' }));
+    // Popover is open.
+    expect(screen.getByPlaceholderText('Search files…')).toBeTruthy();
+    const list = document.querySelector('.picker-list') as HTMLElement;
+    expect(list).toBeTruthy();
+    // Scrolling the picker's own list must NOT close it (the bug: capture-phase
+    // window scroll listener fired for the inner scrollable list too).
+    fireEvent.scroll(list);
+    expect(screen.getByPlaceholderText('Search files…')).toBeTruthy();
+  });
 });

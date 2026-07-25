@@ -46,13 +46,22 @@ function RenumberFileTrigger({ value, placeholder, files, pattern, onPick }: {
       close();
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    // Close when the PAGE (or another scroll container) scrolls out from under
+    // the anchor — but NOT when the user scrolls the picker's own list. Scroll
+    // events fire on the scrollable element (e.target); if that element lives
+    // inside the popover, this is an internal scroll and must be ignored.
+    const onScroll = (e: Event) => {
+      const t = e.target as Node | null;
+      if (t && (popRef.current?.contains(t) || triggerRef.current?.contains(t))) return;
+      close();
+    };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
 
