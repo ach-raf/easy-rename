@@ -1,0 +1,96 @@
+name: Build & Release
+
+# Rolling release: rebuild + replace the `latest` release on every push to master.
+# Also runnable manually from the Actions tab ("Run workflow").
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Moving the `latest` tag and creating a release both need this.
+permissions:
+  contents: write
+
+# If several commits land in quick succession, cancel the superseded runs.
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (Tauri)
+        run: pnpm tauri build
+
+      - name: Publish rolling release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          APP_VERSION=$(node -p "require('./package.json').version")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_SUBJECT=$(git log -1 --pretty=%s)
+          BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')
+
+          # Stage the two artifacts under clean, stable names so each push
+          # overwrites the previous ones instead of accumulating versions.
+          mkdir -p release
+          cp src-tauri/target/release/bundle/nsis/"Easy Rename_"*_x64-setup.exe "release/Easy Rename Setup.exe"
+          cp src-tauri/target/release/easy-rename.exe "release/Easy Rename.exe"
+
+          echo "Releasing Easy Rename v${APP_VERSION} (${SHORT_SHA}) built ${BUILD_DATE}"
+
+          cat > release-notes.md <<EOF
+          ## 🚀 Easy Rename — Latest Build
+
+          |  |  |
+          |---|---|
+          | **Version** | ${APP_VERSION} |
+          | **Commit** | ${COMMIT_SUBJECT} (\`${SHORT_SHA}\`) |
+          | **Built** | ${BUILD_DATE} |
+          | **Branch** | master |
+
+          ### 📦 Downloads
+
+          - **\`Easy Rename Setup.exe\`** — Windows installer (recommended). Run it to install Easy Rename.
+          - **\`Easy Rename.exe\`** — Portable standalone. Run directly; requires WebView2 (pre-installed on Windows 10/11).
+
+          > ⚠️ **Rolling release** — this build is replaced automatically on every push to \`master\`. Re-download to get the latest.
+          EOF
+
+          # Replace the previous rolling release (ignore error on the very first run, when it doesn't exist yet).
+          gh release delete latest --yes --cleanup-tag || true
+
+          gh release create latest release/* \
+            --title "Easy Rename v${APP_VERSION} — Latest Build" \
+            --notes-file release-notes.md \
+            --latest
