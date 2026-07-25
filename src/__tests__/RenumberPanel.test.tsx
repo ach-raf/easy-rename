@@ -32,7 +32,7 @@ describe('RenumberPanel', () => {
     const onChange = vi.fn();
     render(<RenumberPanel opts={opts} files={files} onChange={onChange} summary={summary} />);
     fireEvent.click(screen.getByRole('button', { name: /add season/i }));
-    const last = onChange.mock.calls.at(-1)![0] as RenumberOpts;
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1][0] as RenumberOpts;
     expect(last.seasons).toHaveLength(2);
     expect(last.seasons[1]).toMatchObject({ fromAbs: 0, toAbs: 0, startEp: 1 });
   });
@@ -41,7 +41,7 @@ describe('RenumberPanel', () => {
     const onChange = vi.fn();
     render(<RenumberPanel opts={opts} files={files} onChange={onChange} summary={summary} />);
     fireEvent.click(screen.getByLabelText('Remove season 1'));
-    const last = onChange.mock.calls.at(-1)![0] as RenumberOpts;
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1][0] as RenumberOpts;
     expect(last.seasons).toHaveLength(0);
   });
 
@@ -49,7 +49,7 @@ describe('RenumberPanel', () => {
     const onChange = vi.fn();
     render(<RenumberPanel opts={opts} files={files} onChange={onChange} summary={summary} />);
     fireEvent.change(screen.getByLabelText('Episode at first file for block 1'), { target: { value: '7' } });
-    const last = onChange.mock.calls.at(-1)![0] as RenumberOpts;
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1][0] as RenumberOpts;
     expect(last.seasons[0].startEp).toBe(7);
   });
 
@@ -61,7 +61,7 @@ describe('RenumberPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pick first file' }));
     // Popover lists files with a number; click the abs-91 file.
     fireEvent.click(screen.getByText('Naruto.091.mkv'));
-    const last = onChange.mock.calls.at(-1)![0] as RenumberOpts;
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1][0] as RenumberOpts;
     expect(last.seasons[0].fromAbs).toBe(91);
   });
 });
