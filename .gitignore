@@ -27,4 +27,5 @@ dist-ssr
 
 # Local-only working files (design reference + planning notes)
 /design-mockups/
-/docs/superpowers/
+docs/
+.zcode/
