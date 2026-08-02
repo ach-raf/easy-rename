@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use tauri::Manager;
+use std::path::Path;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct FileEntry {
@@ -21,92 +20,6 @@ pub struct RenameReport {
     pub applied: Vec<RenameOp>,
     pub skipped: Vec<RenameOp>,
     pub errors: Vec<String>,
-}
-
-/// A user-saveable regex quick-pick. Persisted as JSON in the app config dir.
-#[derive(Serialize, Deserialize, Clone)]
-pub struct Preset {
-    pub label: String,
-    pub pattern: String,
-}
-
-/// Where presets live: `<app_config_dir>/regex_presets.json`. Created on first
-/// write; `app_config_dir` is stable across launches and survives reinstalls.
-fn presets_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("regex_presets.json"))
-}
-
-/// The last-used Search & Replace inputs + active mode. Persisted as JSON in
-/// the app config dir (camelCase keys to match the TS SearchReplaceOpts shape).
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct LastRename {
-    pub mode: String,
-    pub search: String,
-    pub replace: String,
-    pub use_regex: bool,
-    pub case_sensitive: bool,
-    pub apply_to: String,
-}
-
-/// Where the last-run state lives: `<app_config_dir>/last_rename.json`.
-fn last_rename_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    Ok(dir.join("last_rename.json"))
-}
-
-/// Pure load (path-based) so it is unit-testable without an AppHandle.
-/// Missing file (first run) and corrupt file both resolve to None.
-fn load_last_rename_at(path: &Path) -> Option<LastRename> {
-    match std::fs::read_to_string(path) {
-        Ok(s) => serde_json::from_str(&s).ok(),
-        Err(_) => None,
-    }
-}
-
-/// Pure save (path-based): write a temp sibling then move, so a crash mid-write
-/// cannot leave a half-written file behind. Mirrors save_presets.
-fn save_last_rename_at(path: &Path, state: &LastRename) -> Result<(), String> {
-    let s = serde_json::to_string_pretty(state).map_err(|e| e.to_string())?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, s).map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp, path).map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn load_last_rename(app: tauri::AppHandle) -> Result<Option<LastRename>, String> {
-    Ok(load_last_rename_at(&last_rename_file(&app)?))
-}
-
-#[tauri::command]
-pub fn save_last_rename(app: tauri::AppHandle, state: LastRename) -> Result<(), String> {
-    save_last_rename_at(&last_rename_file(&app)?, &state)
-}
-
-#[tauri::command]
-pub fn load_presets(app: tauri::AppHandle) -> Result<Vec<Preset>, String> {
-    let path = presets_file(&app)?;
-    match std::fs::read_to_string(&path) {
-        Ok(s) => serde_json::from_str(&s).map_err(|e| e.to_string()),
-        // No file yet (first run) → empty; the frontend seeds defaults.
-        Err(_) => Ok(Vec::new()),
-    }
-}
-
-#[tauri::command]
-pub fn save_presets(app: tauri::AppHandle, presets: Vec<Preset>) -> Result<(), String> {
-    let path = presets_file(&app)?;
-    let s = serde_json::to_string_pretty(&presets).map_err(|e| e.to_string())?;
-    // Write to a sibling temp file then move, so a crash mid-write can't leave a
-    // half-written (unparseable) presets file behind.
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, s).map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
-    Ok(())
 }
 
 #[tauri::command]
@@ -156,19 +69,57 @@ fn apply_one(op: &RenameOp, on_conflict: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-#[tauri::command]
-pub fn rename_pairs(ops: Vec<RenameOp>, on_conflict: String) -> Result<RenameReport, String> {
+/// Progress emitted on the `rename_pairs` channel after each file is processed.
+/// `total` is the input op count; `done` is how many have been handled so far
+/// (applied + skipped + errored); `current` is the source path just handled.
+/// Frontends can drive a progress bar off `done/total` without polling.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressEvent {
+    pub done: usize,
+    pub total: usize,
+    pub current: String,
+}
+
+/// Apply a batch of renames. Pure (no AppHandle, no IPC channel) so it stays
+/// unit-testable and reusable from `undo`. The Tauri `rename_pairs` command
+/// wraps this loop and additionally streams `ProgressEvent`s over its channel.
+fn apply_rename_batch(ops: Vec<RenameOp>, on_conflict: &str) -> RenameReport {
     let mut applied = Vec::new();
     let mut skipped = Vec::new();
     let mut errors = Vec::new();
     for op in ops {
-        match apply_one(&op, &on_conflict) {
+        match apply_one(&op, on_conflict) {
             Ok(true) => applied.push(op),
             Ok(false) => skipped.push(op),
             Err(e) => errors.push(format!("{}: {}", op.src, e)),
         }
     }
-    Ok(RenameReport { applied, skipped, errors })
+    RenameReport { applied, skipped, errors }
+}
+
+#[tauri::command]
+pub fn rename_pairs(
+    ops: Vec<RenameOp>,
+    on_conflict: String,
+    on_progress: tauri::ipc::Channel<ProgressEvent>,
+) -> Result<RenameReport, String> {
+    let total = ops.len();
+    let mut report = RenameReport { applied: Vec::new(), skipped: Vec::new(), errors: Vec::new() };
+    for op in ops {
+        let current = op.src.clone();
+        match apply_one(&op, &on_conflict) {
+            Ok(true) => report.applied.push(op),
+            Ok(false) => report.skipped.push(op),
+            Err(e) => report.errors.push(format!("{}: {}", current, e)),
+        }
+        let _ = on_progress.send(ProgressEvent {
+            done: report.applied.len() + report.skipped.len() + report.errors.len(),
+            total,
+            current,
+        });
+    }
+    Ok(report)
 }
 
 #[tauri::command]
@@ -178,7 +129,9 @@ pub fn undo(ops: Vec<RenameOp>) -> Result<RenameReport, String> {
         .rev()
         .map(|o| RenameOp { src: o.dest, dest: o.src })
         .collect();
-    rename_pairs(reversed, "overwrite".into())
+    // Undo reuses the pure batch helper; no progress channel (typically a small,
+    // fast batch the frontend treats as one shot).
+    Ok(apply_rename_batch(reversed, "overwrite"))
 }
 
 /// Pick the first positional CLI arg iff it is an existing directory.
@@ -243,41 +196,11 @@ mod tests {
         let dest = tmp.path().join("renamed.srt");
         touch(&src);
         let op = RenameOp { src: src.to_string_lossy().into_owned(), dest: dest.to_string_lossy().into_owned() };
-        let report = rename_pairs(vec![op.clone()], "overwrite".into()).unwrap();
+        let report = apply_rename_batch(vec![op.clone()], "overwrite");
         assert_eq!(report.applied.len(), 1);
         let report = undo(report.applied).unwrap();
         assert_eq!(report.applied.len(), 1);
         assert!(src.exists(), "undo should restore original path");
-    }
-
-    #[test]
-    fn last_rename_round_trip() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("last_rename.json");
-        let state = LastRename {
-            mode: "searchReplace".into(), search: "S3".into(), replace: "S4".into(),
-            use_regex: false, case_sensitive: true, apply_to: "both".into(),
-        };
-        save_last_rename_at(&path, &state).unwrap();
-        let loaded = load_last_rename_at(&path).expect("should load after save");
-        assert_eq!(loaded.search, "S3");
-        assert!(loaded.case_sensitive);
-        assert_eq!(loaded.apply_to, "both");
-    }
-
-    #[test]
-    fn last_rename_missing_returns_none() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("nope.json");
-        assert!(load_last_rename_at(&path).is_none());
-    }
-
-    #[test]
-    fn last_rename_corrupt_returns_none() {
-        let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("last_rename.json");
-        std::fs::write(&path, b"{ not valid json").unwrap();
-        assert!(load_last_rename_at(&path).is_none());
     }
 
     #[test]

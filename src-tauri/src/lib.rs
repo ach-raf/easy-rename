@@ -11,15 +11,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::list_files,
             commands::rename_pairs,
             commands::undo,
-            commands::load_presets,
-            commands::save_presets,
-            commands::load_last_rename,
-            commands::save_last_rename,
             commands::get_launch_folder,
         ])
         .run(tauri::generate_context!())
