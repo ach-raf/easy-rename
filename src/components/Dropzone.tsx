@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { Icon } from './icons';
+import { useDragDrop } from '../lib/useDragDrop';
 
 interface Props {
   onFolder: (dir: string) => void;
@@ -9,25 +9,14 @@ interface Props {
 }
 
 export function Dropzone({ onFolder, loaded }: Props) {
-  const hoverRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // The native drag/drop listener only exists under the Tauri runtime. Skip it
-    // in a plain browser (e.g. `vite dev` preview) so the component still renders
-    // instead of throwing on the missing `__TAURI_INTERNALS__` global.
-    if (!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return;
-    const unlisten = getCurrentWebview().onDragDropEvent((event) => {
-      const { type } = event.payload;
-      const paths = 'paths' in event.payload ? event.payload.paths : [];
-      const el = hoverRef.current;
-      if (type === 'enter' || type === 'over') el?.classList.add('drag');
-      else el?.classList.remove('drag');
-      if (type === 'drop' && paths && paths.length > 0) {
-        onFolder(paths[0]);
-      }
-    });
-    return () => { unlisten.then((fn) => fn()); };
-  }, [onFolder]);
+  // Drag-hover highlight is now driven by the useDragDrop hook instead of a
+  // raw onDragDropEvent subscription + manual classList mutation. State (not a
+  // ref) so React owns the class toggle and there's no imperative DOM write.
+  const [dragging, setDragging] = useState(false);
+  useDragDrop({
+    onDrop: (path) => onFolder(path),
+    onHover: setDragging,
+  });
 
   const pick = async () => {
     const dir = await open({ directory: true, multiple: false });
@@ -35,8 +24,13 @@ export function Dropzone({ onFolder, loaded }: Props) {
   };
 
   return (
-    <div className="dropzone" ref={hoverRef} onClick={pick} role="button" tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }}>
+    <div
+      className={'dropzone' + (dragging ? ' drag' : '')}
+      onClick={pick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }}
+    >
       <span className="dz-icon"><Icon name="folder" /></span>
       {loaded ? (
         <p><span className="dz-path" title={loaded}>{loaded}</span></p>

@@ -1,10 +1,12 @@
-import { useState } from 'react';
 import { Icon } from './icons';
-import { ACCENT_HUES, getAccentHue, getTheme, setAccentHue, setTheme } from '../lib/theme';
+import { ACCENT_HUES, useAccentHue, useTheme, setAccentHue, setTheme } from '../lib/theme';
 
 export function ThemeControls() {
-  const [theme, setThemeState] = useState(getTheme());
-  const [hue, setHueState] = useState(getAccentHue());
+  // Reactive theme + accent via useSyncExternalStore-backed hooks. No local
+  // useState needed — the value re-renders automatically when setTheme /
+  // setAccentHue run (or when another window changes localStorage).
+  const theme = useTheme();
+  const hue = useAccentHue();
   const light = theme === 'light';
 
   return (
@@ -18,7 +20,7 @@ export function ThemeControls() {
             style={{ background: `oklch(0.66 0.18 ${h})` }}
             aria-label={`Accent ${h}`}
             aria-pressed={hue === h}
-            onClick={() => { setAccentHue(h); setHueState(h); }}
+            onClick={() => setAccentHue(h)}
           />
         ))}
       </div>
@@ -29,7 +31,7 @@ export function ThemeControls() {
         aria-label="Toggle theme"
         aria-pressed={light}
         title={light ? 'Switch to dark' : 'Switch to light'}
-        onClick={() => { const next = light ? 'dark' : 'light'; setTheme(next); setThemeState(next); }}
+        onClick={() => setTheme(light ? 'dark' : 'light')}
       >
         <Icon name={light ? 'moon' : 'sun'} />
       </button>

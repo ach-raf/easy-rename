@@ -1,4 +1,5 @@
 import { Icon, type IconName } from './icons';
+import { VirtualList } from './VirtualList';
 import { classify } from '../lib/classify';
 import type { PreviewRow } from '../lib/searchReplace';
 
@@ -29,9 +30,9 @@ export function SearchReplaceList({ rows }: Props) {
         <div>Renamed <span className="count">{renamedCount}</span></div>
         <div></div>
       </div>
-      <div className="scroll-area">
-        {rows.map((r, i) => (
-          <div key={r.path} className={'preview-row ' + r.state}>
+      <VirtualList items={rows} getKey={(r) => r.path}>
+        {(r, i) => (
+          <div className={'preview-row ' + r.state}>
             <div className="idx">{String(i + 1).padStart(2, '0')}</div>
             <div className="file">
               <Icon name={iconFor(r.original)} size={15} />
@@ -47,8 +48,8 @@ export function SearchReplaceList({ rows }: Props) {
               <span className={'dot ' + (r.state === 'matched' ? 'success' : 'warn')}></span>
             </div>
           </div>
-        ))}
-      </div>
+        )}
+      </VirtualList>
     </div>
   );
 }

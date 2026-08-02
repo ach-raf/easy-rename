@@ -14,10 +14,14 @@ interface Props {
   apiError: string | null;
   totalVideos?: number;
   conflicts?: number;
+  /** Live rename progress streamed from the Rust command via Channel<ProgressEvent>.
+   *  Present only while a rename is in flight; drives a secondary bar so the user
+   *  sees per-file progress on big batches instead of a static "Working…". */
+  progress?: { done: number; total: number } | null;
 }
 
 export function RenamePanel({
-  ops, folder, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError, totalVideos, conflicts,
+  ops, folder, onConflict, setOnConflict, onRun, onUndo, busy, canUndo, report, apiError, totalVideos, conflicts, progress,
 }: Props) {
   void folder; // retained for API symmetry; hero does not render a path table
   const total = totalVideos && totalVideos > 0 ? totalVideos : ops.length;
@@ -41,6 +45,13 @@ export function RenamePanel({
       </div>
 
       <div className="progress"><div className="progress-fill" style={{ width: pct + '%' }} /></div>
+
+      {busy && progress && progress.total > 0 ? (
+        <div className="progress live-progress" aria-label="Rename progress">
+          <div className="progress-fill" style={{ width: Math.round((progress.done / progress.total) * 100) + '%' }} />
+          <span className="live-progress-label">{progress.done}/{progress.total}</span>
+        </div>
+      ) : null}
 
       <button
         type="button"

@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { extractIndex } from '../lib/match';
 import { splitRelative } from '../lib/path';
 import { FilePath } from './FilePath';
 import { Icon } from './icons';
 import { SubPicker } from './SubPicker';
+import { VirtualList } from './VirtualList';
+import { useDismissiblePopover } from '../lib/useDismissiblePopover';
 import type { MediaFile, Row } from '../lib/match';
 
 interface Props {
@@ -19,21 +21,20 @@ interface Props {
 }
 
 function PairsKebab({ onAutoAssignAll, onUnassignAll }: { onAutoAssignAll: () => void; onUnassignAll: () => void }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('.pairs-actions')) setOpen(false); };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
+  // The kebab is a non-portal dropdown anchored in the header. It uses the
+  // shared dismiss hook (outside-click + Esc) but skips scroll/resize dismissal
+  // — the menu is small and staying open during list scroll is fine. No anchor
+  // positioning is needed (it's in normal flow, not a portal), so `pos` is
+  // unused; `triggerRef` + `popRef` drive the outside-click check.
+  const { open, toggle, setOpen, triggerRef, popRef } = useDismissiblePopover({ dismissOnScroll: false, dismissOnResize: false });
   return (
     <span className="pairs-actions">
-      <button type="button" className="pairs-kebab" aria-expanded={open} aria-haspopup="true"
-        aria-label="Bulk actions" title="Bulk actions" onClick={() => setOpen((o) => !o)}>
+      <button ref={triggerRef} type="button" className="pairs-kebab" aria-expanded={open} aria-haspopup="true"
+        aria-label="Bulk actions" title="Bulk actions" onClick={toggle}>
         <Icon name="more" />
       </button>
       {open ? (
-        <div className="pairs-menu">
+        <div ref={popRef} className="pairs-menu">
           <button type="button" className="pairs-menu-item"
             onClick={() => { onAutoAssignAll(); setOpen(false); }}>
             <Icon name="sparkles" /> Auto-assign all
@@ -101,12 +102,12 @@ export function PairList({ rows, allSubs, pattern, folder, onReassign, onAutoAss
         <PairsKebab onAutoAssignAll={onAutoAssignAll} onUnassignAll={onUnassignAll} />
       </div>
       <div className="pairs-grid-head"><div>#</div><div>Video</div><div></div><div>Subtitle</div><div></div></div>
-      <div className="scroll-area">
-        {rows.map((r) => (
-          <RowItem key={r.video.id} row={r} allRows={rows} allSubs={allSubs} pattern={pattern}
+      <VirtualList items={rows} getKey={(r) => r.video.id}>
+        {(r) => (
+          <RowItem row={r} allRows={rows} allSubs={allSubs} pattern={pattern}
             folder={folder} onReassign={onReassign} onToggleLock={onToggleLock} />
-        ))}
-      </div>
+        )}
+      </VirtualList>
     </div>
   );
 }

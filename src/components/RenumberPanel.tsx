@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
 import { extractIndex } from '../lib/match';
+import { useDismissiblePopover } from '../lib/useDismissiblePopover';
 import type { RenumberOpts, RenumberResult, SeasonBlock } from '../lib/renumber';
 
 interface PanelProps {
@@ -13,7 +14,8 @@ interface PanelProps {
 
 const CHIPS = ['(\\d+)', '(\\d{3})', 'E(\\d+)'];
 
-/** Searchable file picker that writes the chosen file's absolute number. Mirrors SubPicker's portal pattern. */
+/** Searchable file picker that writes the chosen file's absolute number.
+ *  Uses the shared useDismissiblePopover hook for anchor + dismiss behavior. */
 function RenumberFileTrigger({ value, placeholder, files, pattern, onPick }: {
   value: number;
   placeholder: string;
@@ -21,49 +23,13 @@ function RenumberFileTrigger({ value, placeholder, files, pattern, onPick }: {
   pattern: string;
   onPick: (abs: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 260 });
-
-  useLayoutEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const r = triggerRef.current.getBoundingClientRect();
-    setPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 260) });
-    const t = setTimeout(() => searchRef.current?.focus(), 0);
-    return () => clearTimeout(t);
-  }, [open]);
-
-  const close = () => { setOpen(false); setQuery(''); };
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (popRef.current?.contains(t) || triggerRef.current?.contains(t)) return;
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    // Close when the PAGE (or another scroll container) scrolls out from under
-    // the anchor — but NOT when the user scrolls the picker's own list. Scroll
-    // events fire on the scrollable element (e.target); if that element lives
-    // inside the popover, this is an internal scroll and must be ignored.
-    const onScroll = (e: Event) => {
-      const t = e.target as Node | null;
-      if (t && (popRef.current?.contains(t) || triggerRef.current?.contains(t))) return;
-      close();
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', onScroll, true);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', onScroll, true);
-    };
-  }, [open]);
+  const { open, toggle, close, triggerRef, popRef, pos } = useDismissiblePopover({
+    minWidth: 260,
+    autoFocusRef: searchRef,
+    onClose: () => setQuery(''),
+  });
 
   const current = value > 0 ? files.find((f) => extractIndex(f.name, pattern) === value) : undefined;
   const q = query.trim().toLowerCase();
@@ -78,7 +44,7 @@ function RenumberFileTrigger({ value, placeholder, files, pattern, onPick }: {
         className={'rn-file' + (value > 0 ? '' : ' empty')}
         aria-haspopup="listbox" aria-expanded={open}
         aria-label={value > 0 ? undefined : placeholder}
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={toggle}
       >
         <span className="nm">{current ? current.name : placeholder}</span>
         {value > 0 ? <span className="abs">abs {value}</span> : null}

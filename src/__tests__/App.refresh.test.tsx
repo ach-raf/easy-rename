@@ -1,15 +1,23 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import App from '../App';
+import { renderInApp } from '../test/utils';
 
 // Tauri modules are mocked at hoist time so App (and Dropzone) never touch the
 // real runtime. `mocks.invoke` / `mocks.open` are configured per-test below.
+// The core mock also needs a `Channel` stub (api.ts imports it for progress
+// streaming); it's defined inline here because vi.mock factories are hoisted
+// above regular imports.
 const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   open: vi.fn(),
+  Channel: class {
+    onmessage: ((m: unknown) => void) | null = null;
+  },
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
+  Channel: mocks.Channel,
   invoke: (...args: unknown[]) => mocks.invoke(...args),
 }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -53,7 +61,7 @@ describe('App — live refresh after rename', () => {
       return undefined;
     });
 
-    render(<App />);
+    renderInApp(<App />);
 
     // Open the folder via the empty-state dropzone (click → mocked `open`).
     const dz = await screen.findByText('Drop a folder here');
@@ -104,7 +112,7 @@ describe('App — live refresh after rename', () => {
       return undefined;
     });
 
-    render(<App />);
+    renderInApp(<App />);
 
     fireEvent.click(await screen.findByText('Drop a folder here'));
     await screen.findAllByText('ep01.srt');

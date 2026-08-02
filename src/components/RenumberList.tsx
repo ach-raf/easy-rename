@@ -1,4 +1,5 @@
 import { Icon, type IconName } from './icons';
+import { VirtualList } from './VirtualList';
 import { classify } from '../lib/classify';
 import type { RenumberRow, RenumberReason } from '../lib/renumber';
 
@@ -27,9 +28,9 @@ export function RenumberList({ rows }: { rows: RenumberRow[] }) {
       <div className="preview-grid-head rn">
         <div>#</div><div>Abs</div><div>Original <span className="count">{rows.length}</span></div><div></div><div>Renamed <span className="count">{renamedCount}</span></div><div></div>
       </div>
-      <div className="scroll-area">
-        {rows.map((r, i) => (
-          <div key={r.path} className={'preview-row rn ' + r.state}>
+      <VirtualList items={rows} getKey={(r) => r.path}>
+        {(r, i) => (
+          <div className={'preview-row rn ' + r.state}>
             <div className="idx">{String(i + 1).padStart(2, '0')}</div>
             <div className="abs">{r.abs ?? '—'}</div>
             <div className="file">
@@ -46,8 +47,8 @@ export function RenumberList({ rows }: { rows: RenumberRow[] }) {
               <span className={'dot ' + (r.state === 'matched' ? 'success' : 'warn')}></span>
             </div>
           </div>
-        ))}
-      </div>
+        )}
+      </VirtualList>
     </div>
   );
 }

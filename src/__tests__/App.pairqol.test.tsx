@@ -1,9 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
 import App from '../App';
+import { renderInApp } from '../test/utils';
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn(), open: vi.fn() }));
-vi.mock('@tauri-apps/api/core', () => ({ invoke: (...a: unknown[]) => mocks.invoke(...a) }));
+const mocks = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  open: vi.fn(),
+  Channel: class { onmessage: ((m: unknown) => void) | null = null; },
+}));
+vi.mock('@tauri-apps/api/core', () => ({ Channel: mocks.Channel, invoke: (...a: unknown[]) => mocks.invoke(...a) }));
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: (...a: unknown[]) => mocks.open(...a) }));
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: () => ({ onDragDropEvent: () => Promise.resolve(() => {}) }) }));
 
@@ -20,7 +25,7 @@ function setup() {
   });
 }
 async function openFolder() {
-  const view = render(<App />);
+  const view = renderInApp(<App />);
   fireEvent.click(await screen.findByText('Drop a folder here'));
   await screen.findAllByText('subs.E01.srt');
   return view.container;

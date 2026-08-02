@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
+import { useDismissiblePopover } from '../lib/useDismissiblePopover';
 import type { MediaFile } from '../lib/match';
 
 interface Props {
@@ -14,45 +15,15 @@ interface Props {
 }
 
 export function SubPicker({ current, allSubs, hiddenSubIds, locked, onSelect, onUnlink, onToggleLock }: Props) {
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [showHidden, setShowHidden] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 240 });
+  const { open, toggle, close, triggerRef, popRef, pos } = useDismissiblePopover({
+    minWidth: 240,
+    autoFocusRef: searchRef,
+    onClose: () => { setQuery(''); setShowHidden(false); },
+  });
 
-  // Anchor the portal under the trigger whenever it opens.
-  useLayoutEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const r = triggerRef.current.getBoundingClientRect();
-    setPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 240) });
-    const t = setTimeout(() => searchRef.current?.focus(), 0);
-    return () => clearTimeout(t);
-  }, [open]);
-
-  // Close on outside click, Esc, or any scroll/resize.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (popRef.current?.contains(t) || triggerRef.current?.contains(t)) return;
-      close();
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-    };
-  }, [open]);
-
-  const close = () => { setOpen(false); setQuery(''); setShowHidden(false); };
   const pick = (sub: MediaFile) => { onSelect(sub); close(); };
 
   const q = query.trim().toLowerCase();
@@ -66,7 +37,7 @@ export function SubPicker({ current, allSubs, hiddenSubIds, locked, onSelect, on
         ref={triggerRef} type="button" className="sp-trigger"
         aria-haspopup="listbox" aria-expanded={open}
         title={current?.name ?? 'Assign subtitle…'}
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={toggle}
       >
         {current ? <Icon name="captions" /> : null}
         <span className="sp-label">{current ? current.name : 'Assign subtitle…'}</span>
