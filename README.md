@@ -14,9 +14,10 @@
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" />
   &nbsp;
   <img alt="React" src="https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript_5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript_7.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
   <img alt="Tauri" src="https://img.shields.io/badge/Tauri_2-FFC131?style=for-the-badge&logo=tauri&logoColor=black" />
-  <img alt="Vite" src="https://img.shields.io/badge/Vite_7-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+  <img alt="Vite" src="https://img.shields.io/badge/Vite_8-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+  <img alt="TanStack Query" src="https://img.shields.io/badge/TanStack_Query_5-FF4154?style=for-the-badge&logo=reactquery&logoColor=white" />
   &nbsp;
   <img alt="License" src="https://img.shields.io/badge/license-MIT-3F51B5?style=for-the-badge" />
 </p>
@@ -79,7 +80,18 @@
 
 **Search & Replace** — Run a literal or regex search/replace across every file in a folder. Toggle case sensitivity, choose whether to touch the name, the extension, or both, and review the full preview before committing.
 
-**Renumber (absolute → SxxEyy)** — For libraries that use absolute episode numbering. Pick the regex that extracts the absolute number, then for each season pick the first and last file and type the episode the first file should become. The app derives the offset and renames every file in range to `SxxEyy`, keeping the rest of each filename. Define multiple seasons to renumber a whole series in one pass; files outside every season's range are left untouched. The Renumber setup is session-only in this release — it isn't remembered across launches yet.
+**Renumber (absolute → SxxEyy)** — for libraries that use absolute episode numbering. It shares the other modes' safe-by-default guarantees (conflict detection, Windows filename validation, live preview, Undo) and adds:
+
+| Feature                                  | Renumber |
+| :--------------------------------------- | :------: |
+| Absolute → `SxxEyy` (season blocks)      |    ✅    |
+| Anchor mapping (pick first / last file)  |    ✅    |
+| Multi-season in one pass                 |    ✅    |
+| Searchable file picker                   |    ✅    |
+| Regex pattern extraction                 |    ✅    |
+| Remembers setup across launches          | partial |
+
+For libraries that use absolute episode numbering. Pick the regex that extracts the absolute number, then for each season pick the first and last file and type the episode the first file should become. The app derives the offset and renames every file in range to `SxxEyy`, keeping the rest of each filename. Define multiple seasons to renumber a whole series in one pass; files outside every season's range are left untouched. The active tab, the absolute-number pattern, and the zero-pad width are remembered across launches; season ranges are session-only (they're tied to a specific folder's file numbers, so restoring them against a different folder could silently match the wrong files).
 
 ## Install
 
@@ -150,29 +162,42 @@ Produces the raw `easy-rename.exe` binary at `src-tauri/target/release/` and an 
 
 ## Architecture
 
-Easy Rename keeps the trusted surface tiny. **All business logic — classification, pattern matching, rename planning, search/replace — is pure TypeScript** with unit tests. The Rust backend is deliberately minimal: it lists directories and performs or undoes renames, and persists user preferences. Nothing more.
+Easy Rename keeps the trusted surface tiny. **All business logic — classification, pattern matching, rename planning, search/replace — is pure TypeScript** with unit tests. The Rust backend is deliberately minimal: it lists directories, performs or undoes renames (streaming per-file progress over a Tauri IPC `Channel`), and reads the launch folder. User preferences (presets, last-used Search&Replace) are persisted through the official `tauri-plugin-store`.
 
-**Stack:** Tauri 2 · React 19 · TypeScript 5.8 · Vite 7 · @dnd-kit · Vitest · a custom Depth Design system (`src/styles/depth.css`).
+**Stack:** Tauri 2 · React 19.2 · TypeScript 7 · Vite 8 · TanStack Query · TanStack Virtual · @dnd-kit · Vitest · a custom Depth Design system (`src/styles/depth.css`).
+
+- **TanStack Query** owns all server/async state — the folder listing (cached, race-free, auto-refetched via `invalidateQueries` after a rename), presets, and rename/undo mutations. Replaces hand-rolled `useEffect` fetches, the `busy` boolean, and the global error sink.
+- **TanStack Virtual** windowing keeps the preview lists fast on archival libraries with hundreds/thousands of files — only the visible rows render.
+- **React 19.2 native APIs**: `<Activity>` keeps all three mode panels mounted (switching no longer resets state), `useEffectEvent` backs the drag/drop hook, and `useSyncExternalStore` makes theme/accent reactive across windows.
+- **`tauri-plugin-store`** + **`Channel<ProgressEvent>`** replace the bespoke JSON-persistence commands and give the rename panel a live progress bar.
 
 ```text
 easy_rename/
 ├─ src/                  # React + TypeScript frontend
 │  ├─ components/        # Dropzone, PairList, SubPicker, PatternPanel,
 │  │                     #   RenamePanel, SearchReplacePanel, SearchReplaceList,
-│  │                     #   StrayList, ThemeControls, Topbar, FilePath, icons
-│  ├─ lib/               # Pure, unit-tested business logic
+│  │                     #   RenumberPanel, RenumberList, StrayList, ThemeControls,
+│  │                     #   Topbar, FilePath, VirtualList, icons
+│  ├─ lib/               # Pure, unit-tested business logic + React hooks
 │  │  ├─ classify.ts     #   split files into videos / subtitles
 │  │  ├─ match.ts        #   pattern extraction + pairing
 │  │  ├─ renamePlan.ts   #   build the rename operation batch
 │  │  ├─ renumber.ts     #   absolute → SxxEyy engine (season blocks)
 │  │  ├─ searchReplace.ts#   the search/replace engine
 │  │  ├─ path.ts         #   path helpers
-│  │  ├─ theme.ts        #   theme management
+│  │  ├─ theme.ts        #   theme management (useSyncExternalStore-backed)
+│  │  ├─ store.ts        #   typed wrapper over tauri-plugin-store
+│  │  ├─ useFolderListing.ts   # folder listing as a TanStack Query
+│  │  ├─ useRenameActions.ts   # rename/undo mutations + progress
+│  │  ├─ usePresets.ts         # presets query + mutation
+│  │  ├─ useDragDrop.ts        # native drag/drop subscription
+│  │  ├─ useDismissiblePopover.ts  # shared portal-popover behavior
 │  │  └─ __tests__/      #   Vitest specs
+│  ├─ test/              # test setup (jest-dom) + QueryClient render helper
 │  ├─ styles/            # depth.css — Depth Design tokens
-│  ├─ api.ts             # Tauri command bindings
-│  └─ App.tsx            # mode switching + layout (rail / search-replace)
-├─ src-tauri/            # Rust backend — list dir, rename, undo, persist
+│  ├─ api.ts             # typed Tauri command bindings (TauriError, Channel)
+│  └─ App.tsx            # mode switching + layout (rail / search-replace / renumber)
+├─ src-tauri/            # Rust backend — list dir, rename (w/ channel), undo, launch folder
 ├─ design-mockups/       # HTML/CSS mockups of the UI layouts
 └─ public/               # icons & static assets
 ```
